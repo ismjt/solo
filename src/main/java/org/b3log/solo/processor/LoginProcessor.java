@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
  */
 package org.b3log.solo.processor;
 
-
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.mail.MailService;
@@ -47,27 +47,25 @@ import org.b3log.solo.processor.renderer.ConsoleRenderer;
 import org.b3log.solo.processor.util.Filler;
 import org.b3log.solo.repository.OptionRepository;
 import org.b3log.solo.service.*;
+import org.b3log.solo.util.Mails;
 import org.b3log.solo.util.Randoms;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Calendar;
 import java.util.Map;
 
-
 /**
  * Login/logout processor.
- * 
- * <p>Initializes administrator</p>.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="mailto:dongxu.wang@acm.org">Dongxu Wang</a>
- * @version 1.1.1.7, Nov 20, 2015
+ * @author <a href="https://github.com/nanolikeyou">nanolikeyou</a>
+ * @version 1.1.1.10, Sep 21, 2017
  * @since 0.3.1
  */
 @RequestProcessor
@@ -76,7 +74,7 @@ public class LoginProcessor {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(LoginProcessor.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(LoginProcessor.class);
 
     /**
      * User query service.
@@ -147,9 +145,10 @@ public class LoginProcessor {
         final HttpServletRequest request = context.getRequest();
 
         String destinationURL = request.getParameter(Common.GOTO);
-
         if (Strings.isEmptyOrNull(destinationURL)) {
             destinationURL = Latkes.getServePath() + Common.ADMIN_INDEX_URI;
+        } else if (!isInternalLinks(destinationURL)) {
+            destinationURL = "/";
         }
 
         final HttpServletResponse response = context.getResponse();
@@ -167,8 +166,7 @@ public class LoginProcessor {
 
     /**
      * Logins.
-     * 
-     * <p> 
+     * <p>
      * Renders the response with a json object, for example,
      * <pre>
      * {
@@ -185,10 +183,8 @@ public class LoginProcessor {
         final HttpServletRequest request = context.getRequest();
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
         final JSONObject jsonObject = new JSONObject();
-
         renderer.setJSONObject(jsonObject);
 
         try {
@@ -205,10 +201,7 @@ public class LoginProcessor {
                 return;
             }
 
-            LOGGER.log(Level.INFO, "Login[email={0}]", userEmail);
-
             final JSONObject user = userQueryService.getUserByEmail(userEmail);
-
             if (null == user) {
                 LOGGER.log(Level.WARN, "Not found user[email={0}]", userEmail);
                 return;
@@ -252,7 +245,7 @@ public class LoginProcessor {
 
         String destinationURL = httpServletRequest.getParameter(Common.GOTO);
 
-        if (Strings.isEmptyOrNull(destinationURL)) {
+        if (Strings.isEmptyOrNull(destinationURL) || !isInternalLinks(destinationURL)) {
             destinationURL = "/";
         }
 
@@ -273,6 +266,8 @@ public class LoginProcessor {
 
         if (Strings.isEmptyOrNull(destinationURL)) {
             destinationURL = Latkes.getServePath() + Common.ADMIN_INDEX_URI;
+        } else if (!isInternalLinks(destinationURL)) {
+            destinationURL = "/";
         }
 
         renderPage(context, "reset-pwd.ftl", destinationURL, request);
@@ -280,7 +275,6 @@ public class LoginProcessor {
 
     /**
      * Resets forgotten password.
-     * 
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -298,10 +292,8 @@ public class LoginProcessor {
         final HttpServletRequest request = context.getRequest();
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
         final JSONObject jsonObject = new JSONObject();
-
         renderer.setJSONObject(jsonObject);
 
         try {
@@ -319,10 +311,10 @@ public class LoginProcessor {
             LOGGER.log(Level.INFO, "Login[email={0}]", userEmail);
 
             final JSONObject user = userQueryService.getUserByEmail(userEmail);
-
             if (null == user) {
                 LOGGER.log(Level.WARN, "Not found user[email={0}]", userEmail);
                 jsonObject.put(Keys.MSG, langPropsService.get("userEmailNotFoundMsg"));
+
                 return;
             }
 
@@ -334,7 +326,6 @@ public class LoginProcessor {
 
     /**
      * Resets forgotten password.
-     *
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -361,13 +352,24 @@ public class LoginProcessor {
             final JSONObject requestJSONObject;
 
             requestJSONObject = Requests.parseRequestJSONObject(request, context.getResponse());
-            final String userEmail = requestJSONObject.getString(User.USER_EMAIL);
+            final String token = requestJSONObject.getString("token");
             final String newPwd = requestJSONObject.getString("newPwd");
+            final JSONObject passwordResetOption = optionQueryService.getOptionById(token);
+
+            if (null == passwordResetOption) {
+                LOGGER.log(Level.WARN, "Not found user by that token:[{0}]", token);
+                jsonObject.put("succeed", true);
+                jsonObject.put("to", Latkes.getServePath() + "/login?from=reset");
+                jsonObject.put(Keys.MSG, langPropsService.get("resetPwdFailedMsg"));
+                return;
+            }
+            final String userEmail = passwordResetOption.getString(Option.OPTION_VALUE);
             final JSONObject user = userQueryService.getUserByEmail(userEmail);
 
             user.put(User.USER_PASSWORD, newPwd);
             userMgmtService.updateUser(user);
-            LOGGER.log(Level.DEBUG, "[{0}]'s password updated successfully.", new Object[] {userEmail});
+            // TODO delete expired token
+            LOGGER.log(Level.DEBUG, "[{0}]'s password updated successfully.", userEmail);
 
             jsonObject.put("succeed", true);
             jsonObject.put("to", Latkes.getServePath() + "/login?from=reset");
@@ -402,18 +404,16 @@ public class LoginProcessor {
         final String token = new Randoms().nextStringWithMD5();
         final String adminEmail = preference.getString(Option.ID_C_ADMIN_EMAIL);
         final String mailSubject = langPropsService.get("resetPwdMailSubject");
-        final String mailBody = langPropsService.get("resetPwdMailBody") + " " + Latkes.getServePath() + "/forgot?token=" + token
-            + "&login=" + userEmail;
+        final String mailBody = langPropsService.get("resetPwdMailBody") + " " + Latkes.getServePath()
+                + "/forgot?token=" + token;
         final MailService.Message message = new MailService.Message();
 
         final JSONObject option = new JSONObject();
 
         option.put(Keys.OBJECT_ID, token);
         option.put(Option.OPTION_CATEGORY, "passwordReset");
-        option.put(Option.OPTION_VALUE, System.currentTimeMillis());
-
+        option.put(Option.OPTION_VALUE, userEmail);
         final Transaction transaction = optionRepository.beginTransaction();
-
         optionRepository.add(option);
         transaction.commit();
 
@@ -422,13 +422,17 @@ public class LoginProcessor {
         message.setSubject(mailSubject);
         message.setHtmlBody(mailBody);
 
-        mailService.send(message);
+        if (Mails.isConfigured()) {
+            mailService.send(message);
+        } else {
+            LOGGER.log(Level.INFO, "Do not send mail caused by not configure mail.properties");
+        }
 
         jsonObject.put("succeed", true);
         jsonObject.put("to", Latkes.getServePath() + "/login?from=forgot");
         jsonObject.put(Keys.MSG, langPropsService.get("resetPwdSuccessSend"));
 
-        LOGGER.log(Level.DEBUG, "Sent a mail[mailSubject={0}, mailBody=[{1}] to [{2}]", new Object[] {mailSubject, mailBody, userEmail});
+        LOGGER.log(Level.DEBUG, "Sent a mail[mailSubject={0}, mailBody=[{1}] to [{2}]", mailSubject, mailBody, userEmail);
     }
 
     /**
@@ -442,7 +446,7 @@ public class LoginProcessor {
      * @throws ServiceException the ServiceException
      */
     private void renderPage(final HTTPRequestContext context, final String pageTemplate, final String destinationURL,
-        final HttpServletRequest request) throws JSONException, ServiceException {
+                            final HttpServletRequest request) throws JSONException, ServiceException {
         final AbstractFreeMarkerRenderer renderer = new ConsoleRenderer();
 
         renderer.setTemplateName(pageTemplate);
@@ -460,7 +464,6 @@ public class LoginProcessor {
         dataModel.put(Option.ID_C_BLOG_TITLE, preference.getString(Option.ID_C_BLOG_TITLE));
 
         final String token = request.getParameter("token");
-        final String email = request.getParameter("login");
         final JSONObject tokenObj = optionQueryService.getOptionById(token);
 
         if (tokenObj == null) {
@@ -468,7 +471,7 @@ public class LoginProcessor {
         } else {
             // TODO verify the expired time in the tokenObj
             dataModel.put("inputType", "password");
-            dataModel.put("userEmailHidden", email);
+            dataModel.put("tokenHidden", token);
         }
 
         final String from = request.getParameter("from");
@@ -483,5 +486,16 @@ public class LoginProcessor {
 
         Keys.fillRuntime(dataModel);
         filler.fillMinified(dataModel);
+    }
+
+    /**
+     * Preventing unvalidated redirects and forwards. See more at:
+     * <a href="https://www.owasp.org/index.php/Unvalidated_Redirects_and_Forwards_Cheat_Sheet">https://www.owasp.org/index.php/
+     * Unvalidated_Redirects_and_Forwards_Cheat_Sheet</a>.
+     *
+     * @return whether the destinationURL is an internal link
+     */
+    private boolean isInternalLinks(String destinationURL) {
+        return destinationURL.startsWith(Latkes.getServePath());
     }
 }

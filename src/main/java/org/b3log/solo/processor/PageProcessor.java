@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,8 @@
  */
 package org.b3log.solo.processor;
 
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.b3log.latke.Keys;
-import org.b3log.latke.Latkes;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.service.LangPropsService;
@@ -41,16 +34,22 @@ import org.b3log.solo.processor.util.Filler;
 import org.b3log.solo.service.CommentQueryService;
 import org.b3log.solo.service.PreferenceQueryService;
 import org.b3log.solo.service.StatisticMgmtService;
+import org.b3log.solo.util.Emotions;
 import org.b3log.solo.util.Markdowns;
 import org.b3log.solo.util.Skins;
 import org.json.JSONObject;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Page processor.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.0.5, Nov 20, 2015
+ * @version 1.1.0.6, Nov 8, 2016
  * @since 0.3.1
  */
 @RequestProcessor
@@ -59,7 +58,7 @@ public class PageProcessor {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(PageProcessor.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(PageProcessor.class);
 
     /**
      * Language service.
@@ -118,8 +117,6 @@ public class PageProcessor {
 
             Skins.fillLangs(preference.getString(Option.ID_C_LOCALE_STRING), (String) request.getAttribute(Keys.TEMAPLTE_DIR_NAME), dataModel);
 
-            final Map<String, String> langs = langPropsService.getAll(Latkes.getLocale());
-
             // See PermalinkFilter#dispatchToArticleOrPageProcessor()
             final JSONObject page = (JSONObject) request.getAttribute(Page.PAGE);
 
@@ -141,9 +138,10 @@ public class PageProcessor {
             if ("CodeMirror-Markdown".equals(page.optString(Page.PAGE_EDITOR_TYPE))) {
                 Stopwatchs.start("Markdown Page[id=" + page.optString(Keys.OBJECT_ID) + "]");
 
-                final String content = page.optString(Page.PAGE_CONTENT);
-
-                page.put(Page.PAGE_CONTENT, Markdowns.toHTML(content));
+                String content = page.optString(Page.PAGE_CONTENT);
+                content = Emotions.convert(content);
+                content = Markdowns.toHTML(content);
+                page.put(Page.PAGE_CONTENT, content);
 
                 Stopwatchs.end();
             }

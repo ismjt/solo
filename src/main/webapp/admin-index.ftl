@@ -7,7 +7,7 @@
         <link type="text/css" rel="stylesheet" href="${staticServePath}/css/default-base${miniPostfix}.css?${staticResourceVersion}" />
         <link type="text/css" rel="stylesheet" href="${staticServePath}/css/default-admin${miniPostfix}.css?${staticResourceVersion}" />
         <link type="text/css" rel="stylesheet" href="${staticServePath}/js/lib/CodeMirrorEditor/codemirror.min.css?${staticResourceVersion}" />
-        <link type="text/css" rel="stylesheet" href="${staticServePath}/js/lib/highlight/styles/github.css?${staticResourceVersion}" />
+        <link type="text/css" rel="stylesheet" href="${staticServePath}/js/lib/highlight.js-9.6.0/styles/github.css?${staticResourceVersion}" />
         <link rel="icon" type="image/png" href="${staticServePath}/favicon.png" />
     </head>
     <body onhashchange="admin.setCurByHash();">
@@ -20,7 +20,11 @@
                 </a>
                
                 <span class="right"> 
-                    <a href="${servePath}" title='${indexLabel}'>${indexLabel}</a><a href='javascript:admin.logout();' title='${logoutLabel}'>${logoutLabel}</a>
+                    <a href="${servePath}" title='${indexLabel}'>
+                        <div class="avatar" style="background-image: url(${gravatar})"></div>
+                        ${userName}
+                    </a>
+                    <a href='javascript:admin.logout();' title='${logoutLabel}'>${logoutLabel}</a>
                 </span>
             </div>
             <div id="tabs">
@@ -76,6 +80,11 @@
                                 </div>
                             </li>
                             <li>
+                                <div id="tabs_category-list">
+                                    <a href="#tools/category-list">${categoryListLabel}</a>
+                                </div>
+                            </li>
+                            <li>
                                 <div id="tabs_page-list">
                                     <a href="#tools/page-list">${navMgmtLabel}</a>
                                 </div>
@@ -118,6 +127,7 @@
                 <div id="tabsPanel_draft-list" class="none"></div>
                 <div id="tabsPanel_link-list" class="none"></div>
                 <div id="tabsPanel_preference" class="none"></div>
+                <div id="tabsPanel_category-list" class="none"></div>
                 <div id="tabsPanel_page-list" class="none"></div>
                 <div id="tabsPanel_others" class="none"></div>
                 <div id="tabsPanel_user-list" class="none"></div>
@@ -127,11 +137,12 @@
             </div>
             <div class="clear"></div>
             <div class="footer">
-                Powered by <a href="http://b3log.org" target="_blank">B3log 开源</a> • <a href="http://b3log.org/services/#solo" target="_blank">Solo</a> ${version}
+                Powered by <a href="http://b3log.org" target="_blank">B3log 开源</a> • <a href="https://hacpai.com/tag/Solo" target="_blank">Solo</a> ${version}
             </div>
         </div>
         <script src="${staticServePath}/js/lib/compress/admin-lib.min.js"></script>
-        <script src="${staticServePath}/js/lib/tiny_mce/tiny_mce.js"></script>
+        <script src="${servePath}/js/lib/tiny_mce/tiny_mce.js"></script>
+        <script src="${servePath}/js/lib/KindEditor/kindeditor-min.js"></script>
         <script src="${staticServePath}/js/common${miniPostfix}.js"></script>
         <#if "" == miniPostfix>
         <script src="${staticServePath}/js/admin/admin.js"></script>
@@ -150,6 +161,7 @@
         <script src="${staticServePath}/js/admin/preference.js"></script>
         <script src="${staticServePath}/js/admin/pluginList.js"></script>
         <script src="${staticServePath}/js/admin/userList.js"></script>
+        <script src="${staticServePath}/js/admin/categoryList.js"></script>
         <script src="${staticServePath}/js/admin/commentList.js"></script>
         <script src="${staticServePath}/js/admin/plugin.js"></script>
         <script src="${staticServePath}/js/admin/main.js"></script>

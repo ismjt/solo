@@ -5,13 +5,15 @@
     </div>
     <div>
         <label>${content1Label}</label>
-        <textarea id="articleContent" name="articleContent"
+        <div>
+            <textarea id="articleContent" name="articleContent"
                   style="height: 500px;width:100%;"></textarea>
+        </div>
     </div>
     <div>
         <label>${uploadFileLabel}</label>
         <form id="articleUpload" method="POST" enctype="multipart/form-data">
-            <input type="file" name="file" multiple=""/>
+            <input type="file" name="file" multiple=""/><span></span>
         </form>
     </div>
     <div>
@@ -20,7 +22,9 @@
     </div>
     <div class="comment-content">
         <label>${abstract1Label}</label>
-        <textarea id="abstract" style="height: 200px;width: 100%;" name="abstract"></textarea>
+        <div>
+            <textarea id="abstract" style="height: 200px;width: 100%;" name="abstract"></textarea>
+        </div>
     </div>
     <div>
         <div class="left">
@@ -54,9 +58,9 @@
         <div class="clear"></div>
     </div>
     <div class="right">
-        <button class="marginRight12" id="saveArticle">${saveLabel}</button>
+        <button id="unSubmitArticle" class="none marginRight12" onclick="admin.article.unPublish();">${unPublishLabel}</button>
+        <button class="marginRight12" id="saveArticle">${saveLabel}${draftListLabel}</button>
         <button id="submitArticle">${publishLabel}</button>
-        <button id="unSubmitArticle" class="none" onclick="admin.article.unPublish();">${unPublishLabel}</button>
     </div>
     <div class="clear"></div>
 </div>

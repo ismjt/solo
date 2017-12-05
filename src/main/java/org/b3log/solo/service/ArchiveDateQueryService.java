@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,7 @@
 package org.b3log.solo.service;
 
 
-import java.util.List;
-import javax.inject.Inject;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.repository.RepositoryException;
@@ -26,6 +25,8 @@ import org.b3log.latke.service.annotation.Service;
 import org.b3log.solo.model.ArchiveDate;
 import org.b3log.solo.repository.ArchiveDateRepository;
 import org.json.JSONObject;
+
+import java.util.List;
 
 
 /**
@@ -41,7 +42,7 @@ public class ArchiveDateQueryService {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(ArchiveDateQueryService.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ArchiveDateQueryService.class);
 
     /**
      * Archive date repository.
@@ -86,7 +87,6 @@ public class ArchiveDateQueryService {
 
         try {
             final JSONObject archiveDate = archiveDateRepository.getByArchiveDate(archiveDateString);
-
             if (null == archiveDate) {
                 return null;
             }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,28 +15,134 @@
  */
 package org.b3log.solo.model.feed.rss;
 
+import com.sun.org.apache.xml.internal.serialize.OutputFormat;
+import com.sun.org.apache.xml.internal.serialize.XMLSerializer;
+import org.apache.commons.lang.time.DateFormatUtils;
+import org.b3log.latke.logging.Level;
+import org.b3log.latke.logging.Logger;
+import org.b3log.solo.processor.FeedProcessor;
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import org.apache.commons.lang.time.DateFormatUtils;
-
 
 /**
  * RSS 2.0 channel.
- *
  * <p>
- * See <a href="http://cyber.law.harvard.edu/rss/rss.html">RSS 2.0 at Harvard Law</a> 
- * for more details.
+ * See <a href="http://cyber.law.harvard.edu/rss/rss.html">RSS 2.0 at Harvard Law</a> for more details.
  * </p>
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.0.1, Nov 19, 2011
+ * @version 1.1.0.3, Oct 21, 2017
  * @see Item
  * @see Category
  * @since 0.3.1
  */
 public final class Channel {
+
+    /**
+     * Time zone id.
+     */
+    public static final String TIME_ZONE_ID = "Asia/Shanghai";
+
+    /**
+     * Logger.
+     */
+    private static final Logger LOGGER = Logger.getLogger(FeedProcessor.class);
+
+    /**
+     * Start.
+     */
+    private static final String START = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><rss version=\"2.0\" "
+            + "xmlns:atom=\"http://www.w3.org/2005/Atom\"><channel>";
+
+    /**
+     * End.
+     */
+    private static final String END = "</channel></rss>";
+
+    /**
+     * Start title element.
+     */
+    private static final String START_TITLE_ELEMENT = "<title>";
+
+    /**
+     * End title element.
+     */
+    private static final String END_TITLE_ELEMENT = "</title>";
+
+    /**
+     * Start link element.
+     */
+    private static final String START_LINK_ELEMENT = "<link>";
+
+    /**
+     * Atom link variable.
+     */
+    private static final String ATOM_LINK_VARIABLE = "${atomLink}";
+
+    /**
+     * End link element.
+     */
+    private static final String END_LINK_ELEMENT = "</link>";
+
+    /**
+     * Atom link element.
+     */
+    private static final String ATOM_LINK_ELEMENT = "<atom:link href=\"" + ATOM_LINK_VARIABLE
+            + "\" rel=\"self\" type=\"application/rss+xml\" />";
+
+    /**
+     * Start description element.
+     */
+    private static final String START_DESCRIPTION_ELEMENT = "<description>";
+
+    /**
+     * End description element.
+     */
+    private static final String END_DESCRIPTION_ELEMENT = "</description>";
+
+    /**
+     * Start generator element.
+     */
+    private static final String START_GENERATOR_ELEMENT = "<generator>";
+
+    /**
+     * End generator element.
+     */
+    private static final String END_GENERATOR_ELEMENT = "</generator>";
+
+    /**
+     * Start language element.
+     */
+    private static final String START_LANGUAGE_ELEMENT = "<language>";
+
+    /**
+     * End language element.
+     */
+    private static final String END_LANGUAGE_ELEMENT = "</language>";
+
+    /**
+     * Start last build date element.
+     */
+    private static final String START_LAST_BUILD_DATE_ELEMENT = "<lastBuildDate>";
+
+    /**
+     * End last build date element.
+     */
+    private static final String END_LAST_BUILD_DATE_ELEMENT = "</lastBuildDate>";
 
     /**
      * Title.
@@ -76,107 +182,37 @@ public final class Channel {
     /**
      * Items.
      */
-    private List<Item> items = new ArrayList<Item>();
+    private List<Item> items = new ArrayList<>();
 
     /**
-     * Time zone id.
+     * Returns pretty print of the specified xml string.
+     *
+     * @param xml the specified xml string
+     * @return the pretty print of the specified xml string
+     * @throws Exception exception
      */
-    public static final String TIME_ZONE_ID = "Asia/Shanghai";
+    private static String format(final String xml) {
+        try {
+            final DocumentBuilder db = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            final Document doc = db.parse(new InputSource(new StringReader(xml)));
+            final Transformer transformer = TransformerFactory.newInstance().newTransformer();
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+            final StreamResult result = new StreamResult(new StringWriter());
+            final DOMSource source = new DOMSource(doc);
+            transformer.transform(source, result);
 
-    /**
-     * Start.
-     */
-    private static final String START = "<?xml version='1.0' encoding='UTF-8'?><rss version=\"2.0\" "
-        + "xmlns:atom=\"http://www.w3.org/2005/Atom\"><channel>";
+            return result.getWriter().toString();
+        } catch (final Exception e) {
+            LOGGER.log(Level.ERROR, "format pretty XML failed", e);
 
-    /**
-     * End.
-     */
-    private static final String END = "</channel></rss>";
-
-    /**
-     * Start title element.
-     */
-    private static final String START_TITLE_ELEMENT = "<title>";
-
-    /**
-     * End title element.
-     */
-    private static final String END_TITLE_ELEMENT = "</title>";
-
-    /**
-     * Start link element.
-     */
-    private static final String START_LINK_ELEMENT = "<link>";
-
-    /**
-     * Atom link variable.
-     */
-    private static final String ATOM_LINK_VARIABLE = "${atomLink}";
-
-    /**
-     * End link element.
-     */
-    private static final String END_LINK_ELEMENT = "</link>";
-
-    /**
-     * Atom link element.
-     */
-    private static final String ATOM_LINK_ELEMENT = "<atom:link href=\"" + ATOM_LINK_VARIABLE
-        + "\" rel=\"self\" type=\"application/rss+xml\" />";
-
-    /**
-     * Start description element.
-     */
-    private static final String START_DESCRIPTION_ELEMENT = "<description>";
-
-    /**
-     * End description element.
-     */
-    private static final String END_DESCRIPTION_ELEMENT = "</description>";
-
-    /**
-     * Start generator element.
-     */
-    private static final String START_GENERATOR_ELEMENT = "<generator>";
-
-    /**
-     * End generator element.
-     */
-    private static final String END_GENERATOR_ELEMENT = "</generator>";
-
-    /**
-     * Start language element.
-     */
-    private static final String START_LANGUAGE_ELEMENT = "<language>";
-
-    /**
-     * End language element.
-     */
-    private static final String END_LANGUAGE_ELEMENT = "</language>";
-
-    /**
-     * Start last build date element.
-     */
-    private static final String START_LAST_BUILD_DATE_ELEMENT = "<lastBuildDate>";
-
-    /**
-     * End last build date  element.
-     */
-    private static final String END_LAST_BUILD_DATE_ELEMENT = "</lastBuildDate>";
-
-    /**
-     * Sets the atom link with the specified atom link.
-     * 
-     * @param atomLink the specified atom link
-     */
-    public void setAtomLink(final String atomLink) {
-        this.atomLink = atomLink;
+            return xml;
+        }
     }
 
     /**
      * Gets the atom link.
-     * 
+     *
      * @return atom link
      */
     public String getAtomLink() {
@@ -184,8 +220,17 @@ public final class Channel {
     }
 
     /**
+     * Sets the atom link with the specified atom link.
+     *
+     * @param atomLink the specified atom link
+     */
+    public void setAtomLink(final String atomLink) {
+        this.atomLink = atomLink;
+    }
+
+    /**
      * Gets the last build date.
-     * 
+     *
      * @return last build date
      */
     public Date getLastBuildDate() {
@@ -194,7 +239,7 @@ public final class Channel {
 
     /**
      * Sets the last build date with the specified last build date.
-     * 
+     *
      * @param lastBuildDate the specified last build date
      */
     public void setLastBuildDate(final Date lastBuildDate) {
@@ -203,7 +248,7 @@ public final class Channel {
 
     /**
      * Gets generator.
-     * 
+     *
      * @return generator
      */
     public String getGenerator() {
@@ -212,7 +257,7 @@ public final class Channel {
 
     /**
      * Sets the generator with the specified generator.
-     * 
+     *
      * @param generator the specified generator
      */
     public void setGenerator(final String generator) {
@@ -338,6 +383,6 @@ public final class Channel {
 
         stringBuilder.append(END);
 
-        return stringBuilder.toString();
+        return format(stringBuilder.toString());
     }
 }

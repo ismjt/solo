@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,6 @@
 package org.b3log.solo.event.ping;
 
 
-import java.net.URL;
-import java.net.URLEncoder;
 import org.b3log.latke.Latkes;
 import org.b3log.latke.event.AbstractEventListener;
 import org.b3log.latke.event.Event;
@@ -34,6 +32,9 @@ import org.b3log.solo.model.Article;
 import org.b3log.solo.model.Option;
 import org.b3log.solo.service.PreferenceQueryService;
 import org.json.JSONObject;
+
+import java.net.URL;
+import java.net.URLEncoder;
 
 
 /**
@@ -57,7 +58,7 @@ public final class UpdateArticleGoogleBlogSearchPinger extends AbstractEventList
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(UpdateArticleGoogleBlogSearchPinger.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(UpdateArticleGoogleBlogSearchPinger.class);
 
     /**
      * URL fetch service.
@@ -93,7 +94,7 @@ public final class UpdateArticleGoogleBlogSearchPinger extends AbstractEventList
             if (Latkes.getServePath().contains("localhost")) {
                 LOGGER.log(Level.TRACE,
                     "Solo runs on local server, so should not ping " + "Google Blog Search Service for the article[title={0}]",
-                    new Object[] {article.getString(Article.ARTICLE_TITLE)});
+                        article.getString(Article.ARTICLE_TITLE));
                 return;
             }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,19 +15,11 @@
  */
 package org.b3log.solo.service;
 
-import java.net.URL;
-import java.text.ParseException;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
-import javax.inject.Inject;
-import javax.servlet.ServletContext;
 import org.apache.commons.lang.time.DateFormatUtils;
 import org.apache.commons.lang.time.DateUtils;
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
-import org.b3log.latke.RuntimeDatabase;
-import org.b3log.latke.RuntimeEnv;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.model.Role;
@@ -49,15 +41,7 @@ import org.b3log.latke.util.freemarker.Templates;
 import org.b3log.solo.SoloServletListener;
 import org.b3log.solo.model.*;
 import org.b3log.solo.model.Option.DefaultPreference;
-import org.b3log.solo.repository.ArchiveDateArticleRepository;
-import org.b3log.solo.repository.ArchiveDateRepository;
-import org.b3log.solo.repository.ArticleRepository;
-import org.b3log.solo.repository.CommentRepository;
-import org.b3log.solo.repository.OptionRepository;
-import org.b3log.solo.repository.StatisticRepository;
-import org.b3log.solo.repository.TagArticleRepository;
-import org.b3log.solo.repository.TagRepository;
-import org.b3log.solo.repository.UserRepository;
+import org.b3log.solo.repository.*;
 import org.b3log.solo.util.Comments;
 import org.b3log.solo.util.Skins;
 import org.b3log.solo.util.Thumbnails;
@@ -66,11 +50,18 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import javax.servlet.ServletContext;
+import java.net.URL;
+import java.text.ParseException;
+import java.util.Date;
+import java.util.List;
+import java.util.Set;
+
 /**
  * Solo initialization service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.4.2.10, Sep 13, 2016
+ * @version 1.5.2.15, Sep 21, 2017
  * @since 0.4.0
  */
 @Service
@@ -79,13 +70,17 @@ public class InitService {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(InitService.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(InitService.class);
 
     /**
-     * Statistic repository.
+     * Maximum count of initialization.
      */
-    @Inject
-    private StatisticRepository statisticRepository;
+    private static final int MAX_RETRIES_CNT = 3;
+
+    /**
+     * Initialized time zone id.
+     */
+    private static final String INIT_TIME_ZONE_ID = "Asia/Shanghai";
 
     /**
      * Option repository.
@@ -136,14 +131,16 @@ public class InitService {
     private CommentRepository commentRepository;
 
     /**
-     * Maximum count of initialization.
+     * Link repository.
      */
-    private static final int MAX_RETRIES_CNT = 3;
+    @Inject
+    private LinkRepository linkRepository;
 
     /**
-     * Initialized time zone id.
+     * Statistic management service.
      */
-    private static final String INIT_TIME_ZONE_ID = "Asia/Shanghai";
+    @Inject
+    private StatisticMgmtService statisticMgmtService;
 
     /**
      * Language service.
@@ -176,7 +173,6 @@ public class InitService {
 
     /**
      * Initializes Solo.
-     *
      * <p>
      * Initializes the followings in sequence:
      * <ol>
@@ -185,23 +181,19 @@ public class InitService {
      * <li>Administrator</li>
      * </ol>
      * </p>
-     *
      * <p>
      * We will try to initialize Solo 3 times at most.
      * </p>
-     *
      * <p>
      * Posts "Hello World!" article and its comment while Solo initialized.
      * </p>
      *
-     * @param requestJSONObject the specified request json object, for example,      <pre>
-     * {
-     *     "userName": "",
-     *     "userEmail": "",
-     *     "userPassword": "", // Unhashed
-     * }
-     * </pre>
-     *
+     * @param requestJSONObject the specified request json object, for example,
+     *                          {
+     *                          "userName": "",
+     *                          "userEmail": "",
+     *                          "userPassword": "", // Unhashed
+     *                          }
      * @throws ServiceException service exception
      */
     public void init(final JSONObject requestJSONObject) throws ServiceException {
@@ -209,24 +201,19 @@ public class InitService {
             return;
         }
 
-        final RuntimeEnv runtimeEnv = Latkes.getRuntimeEnv();
+        LOGGER.log(Level.DEBUG, "Solo is running with database [{0}], creates all tables", Latkes.getRuntimeDatabase());
 
-        if (RuntimeEnv.LOCAL == runtimeEnv) {
-            LOGGER.log(Level.INFO, "Solo is running on [" + runtimeEnv + "] environment, database [{0}], creates "
-                    + "all tables", Latkes.getRuntimeDatabase());
+        if (Latkes.RuntimeDatabase.H2 == Latkes.getRuntimeDatabase()) {
+            String dataDir = Latkes.getLocalProperty("jdbc.URL");
+            dataDir = dataDir.replace("~", System.getProperty("user.home"));
+            LOGGER.log(Level.INFO, "YOUR DATA will be stored in directory [" + dataDir + "], "
+                    + "please pay more attention to it~");
+        }
 
-            if (RuntimeDatabase.H2 == Latkes.getRuntimeDatabase()) {
-                String dataDir = Latkes.getLocalProperty("jdbc.URL");
-                dataDir = dataDir.replace("~", System.getProperty("user.home"));
-                LOGGER.log(Level.INFO, "YOUR DATA will be stored in directory [" + dataDir + "], "
-                        + "please pay more attention to it~");
-            }
-
-            final List<CreateTableResult> createTableResults = JdbcRepositories.initAllTables();
-            for (final CreateTableResult createTableResult : createTableResults) {
-                LOGGER.log(Level.DEBUG, "Create table result[tableName={0}, isSuccess={1}]",
-                        new Object[]{createTableResult.getName(), createTableResult.isSuccess()});
-            }
+        final List<CreateTableResult> createTableResults = JdbcRepositories.initAllTables();
+        for (final CreateTableResult createTableResult : createTableResults) {
+            LOGGER.log(Level.DEBUG, "Create table result[tableName={0}, isSuccess={1}]",
+                    createTableResult.getName(), createTableResult.isSuccess());
         }
 
         int retries = MAX_RETRIES_CNT;
@@ -235,13 +222,13 @@ public class InitService {
             final Transaction transaction = userRepository.beginTransaction();
 
             try {
-                final JSONObject statistic = statisticRepository.get(Statistic.STATISTIC);
-
+                final JSONObject statistic = optionRepository.get(Option.ID_C_STATISTIC_BLOG_ARTICLE_COUNT);
                 if (null == statistic) {
                     initStatistic();
                     initPreference(requestJSONObject);
                     initReplyNotificationTemplate();
                     initAdmin(requestJSONObject);
+                    initLink();
                 }
 
                 transaction.commit();
@@ -281,7 +268,7 @@ public class InitService {
 
             final HTTPRequest req = new HTTPRequest();
             req.setURL(new URL(Latkes.getServePath() + "/blog/symphony/user"));
-            urlFetchService.fetch(req);
+            urlFetchService.fetchAsync(req);
         } catch (final Exception e) {
             LOGGER.log(Level.TRACE, "Sync account failed");
         }
@@ -302,7 +289,7 @@ public class InitService {
 
         article.put(Article.ARTICLE_ABSTRACT, content);
         article.put(Article.ARTICLE_CONTENT, content);
-        article.put(Article.ARTICLE_TAGS_REF, "B3log,Solo");
+        article.put(Article.ARTICLE_TAGS_REF, "Solo");
         article.put(Article.ARTICLE_PERMALINK, "/hello-solo");
         article.put(Article.ARTICLE_IS_PUBLISHED, true);
         article.put(Article.ARTICLE_HAD_BEEN_PUBLISHED, true);
@@ -328,9 +315,9 @@ public class InitService {
         final JSONObject comment = new JSONObject();
 
         comment.put(Keys.OBJECT_ID, articleId);
-        comment.put(Comment.COMMENT_NAME, "88250");
+        comment.put(Comment.COMMENT_NAME, "Daniel");
         comment.put(Comment.COMMENT_EMAIL, "dl88250@gmail.com");
-        comment.put(Comment.COMMENT_URL, "http://88250.b3log.org");
+        comment.put(Comment.COMMENT_URL, "https://hacpai.com/member/88250");
         comment.put(Comment.COMMENT_CONTENT, langPropsService.get("helloWorld.comment.content"));
         comment.put(Comment.COMMENT_ORIGINAL_COMMENT_ID, "");
         comment.put(Comment.COMMENT_ORIGINAL_COMMENT_NAME, "");
@@ -371,13 +358,11 @@ public class InitService {
             // Step 2: Add tag-article relations
             addTagArticleRelation(tags, article);
             // Step 3: Inc blog article and comment count statictis
-            final JSONObject statistic = statisticRepository.get(Statistic.STATISTIC);
+            statisticMgmtService.incBlogCommentCount();
+            statisticMgmtService.incPublishedBlogCommentCount();
+            statisticMgmtService.incBlogArticleCount();
+            statisticMgmtService.incPublishedBlogArticleCount();
 
-            statistic.put(Statistic.STATISTIC_BLOG_ARTICLE_COUNT, 1);
-            statistic.put(Statistic.STATISTIC_PUBLISHED_ARTICLE_COUNT, 1);
-            statistic.put(Statistic.STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT, 1);
-            statistic.put(Statistic.STATISTIC_BLOG_COMMENT_COUNT, 1);
-            statisticRepository.update(Statistic.STATISTIC, statistic);
             // Step 4: Add archive date-article relations
             archiveDate(article);
             // Step 5: Add article
@@ -400,15 +385,13 @@ public class InitService {
     /**
      * Archive the create date with the specified article.
      *
-     * @param article the specified article, for example,      <pre>
-     * {
-     *     ....,
-     *     "oId": "",
-     *     "articleCreateDate": java.util.Date,
-     *     ....
-     * }
-     * </pre>
-     *
+     * @param article the specified article, for example,
+     *                {
+     *                ....,
+     *                "oId": "",
+     *                "articleCreateDate": java.util.Date,
+     *                ....
+     *                }
      * @throws RepositoryException repository exception
      */
     public void archiveDate(final JSONObject article) throws RepositoryException {
@@ -438,7 +421,7 @@ public class InitService {
     /**
      * Adds relation of the specified tags and article.
      *
-     * @param tags the specified tags
+     * @param tags    the specified tags
      * @param article the specified article
      * @throws RepositoryException repository exception
      */
@@ -458,7 +441,7 @@ public class InitService {
      * Tags the specified article with the specified tag titles.
      *
      * @param tagTitles the specified tag titles
-     * @param article the specified article
+     * @param article   the specified article
      * @return an array of tags
      * @throws RepositoryException repository exception
      */
@@ -470,7 +453,7 @@ public class InitService {
             final JSONObject tag = new JSONObject();
 
             LOGGER.log(Level.TRACE, "Found a new tag[title={0}] in article[title={1}]",
-                    new Object[]{tagTitle, article.optString(Article.ARTICLE_TITLE)});
+                    tagTitle, article.optString(Article.ARTICLE_TITLE));
             tag.put(Tag.TAG_TITLE, tagTitle);
             tag.put(Tag.TAG_REFERENCE_COUNT, 1);
             tag.put(Tag.TAG_PUBLISHED_REFERENCE_COUNT, 1);
@@ -488,14 +471,12 @@ public class InitService {
     /**
      * Initializes administrator with the specified request json object, and then logins it.
      *
-     * @param requestJSONObject the specified request json object, for example,      <pre>
-     * {
-     *     "userName": "",
-     *     "userEmail": "",
-     *     "userPassowrd": "" // Unhashed
-     * }
-     * </pre>
-     *
+     * @param requestJSONObject the specified request json object, for example,
+     *                          {
+     *                          "userName": "",
+     *                          "userEmail": "",
+     *                          "userPassowrd": "" // Unhashed
+     *                          }
      * @throws Exception exception
      */
     private void initAdmin(final JSONObject requestJSONObject) throws Exception {
@@ -517,22 +498,61 @@ public class InitService {
     }
 
     /**
+     * Initializes link.
+     *
+     * @throws Exception exception
+     */
+    private void initLink() throws Exception {
+        final JSONObject link = new JSONObject();
+
+        link.put(Link.LINK_TITLE, "黑客派");
+        link.put(Link.LINK_ADDRESS, "https://hacpai.com");
+        link.put(Link.LINK_DESCRIPTION, "黑客与画家的社区");
+
+        final int maxOrder = linkRepository.getMaxOrder();
+
+        link.put(Link.LINK_ORDER, maxOrder + 1);
+        final String ret = linkRepository.add(link);
+    }
+
+    /**
      * Initializes statistic.
      *
      * @throws RepositoryException repository exception
-     * @throws JSONException json exception
+     * @throws JSONException       json exception
      */
     private void initStatistic() throws RepositoryException, JSONException {
         LOGGER.debug("Initializing statistic....");
-        final JSONObject statistic = new JSONObject();
 
-        statistic.put(Keys.OBJECT_ID, Statistic.STATISTIC);
-        statistic.put(Statistic.STATISTIC_BLOG_ARTICLE_COUNT, 0);
-        statistic.put(Statistic.STATISTIC_PUBLISHED_ARTICLE_COUNT, 0);
-        statistic.put(Statistic.STATISTIC_BLOG_VIEW_COUNT, 0);
-        statistic.put(Statistic.STATISTIC_BLOG_COMMENT_COUNT, 0);
-        statistic.put(Statistic.STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT, 0);
-        statisticRepository.add(statistic);
+        final JSONObject statisticBlogArticleCountOpt = new JSONObject();
+        statisticBlogArticleCountOpt.put(Keys.OBJECT_ID, Option.ID_C_STATISTIC_BLOG_ARTICLE_COUNT);
+        statisticBlogArticleCountOpt.put(Option.OPTION_VALUE, "0");
+        statisticBlogArticleCountOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_STATISTIC);
+        optionRepository.add(statisticBlogArticleCountOpt);
+
+        final JSONObject statisticBlogCommentCountOpt = new JSONObject();
+        statisticBlogCommentCountOpt.put(Keys.OBJECT_ID, Option.ID_C_STATISTIC_BLOG_COMMENT_COUNT);
+        statisticBlogCommentCountOpt.put(Option.OPTION_VALUE, "0");
+        statisticBlogCommentCountOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_STATISTIC);
+        optionRepository.add(statisticBlogCommentCountOpt);
+
+        final JSONObject statisticBlogViewCountOpt = new JSONObject();
+        statisticBlogViewCountOpt.put(Keys.OBJECT_ID, Option.ID_C_STATISTIC_BLOG_VIEW_COUNT);
+        statisticBlogViewCountOpt.put(Option.OPTION_VALUE, "0");
+        statisticBlogViewCountOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_STATISTIC);
+        optionRepository.add(statisticBlogViewCountOpt);
+
+        final JSONObject statisticPublishedBlogArticleCountOpt = new JSONObject();
+        statisticPublishedBlogArticleCountOpt.put(Keys.OBJECT_ID, Option.ID_C_STATISTIC_PUBLISHED_ARTICLE_COUNT);
+        statisticPublishedBlogArticleCountOpt.put(Option.OPTION_VALUE, "0");
+        statisticPublishedBlogArticleCountOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_STATISTIC);
+        optionRepository.add(statisticPublishedBlogArticleCountOpt);
+
+        final JSONObject statisticPublishedBlogCommentCountOpt = new JSONObject();
+        statisticPublishedBlogCommentCountOpt.put(Keys.OBJECT_ID, Option.ID_C_STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT);
+        statisticPublishedBlogCommentCountOpt.put(Option.OPTION_VALUE, "0");
+        statisticPublishedBlogCommentCountOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_STATISTIC);
+        optionRepository.add(statisticPublishedBlogCommentCountOpt);
 
         LOGGER.debug("Initialized statistic");
     }
@@ -833,15 +853,6 @@ public class InitService {
      */
     public void setUserRepository(final UserRepository userRepository) {
         this.userRepository = userRepository;
-    }
-
-    /**
-     * Sets the statistic repository with the specified statistic repository.
-     *
-     * @param statisticRepository the specified statistic repository
-     */
-    public void setStatisticRepository(final StatisticRepository statisticRepository) {
-        this.statisticRepository = statisticRepository;
     }
 
     /**

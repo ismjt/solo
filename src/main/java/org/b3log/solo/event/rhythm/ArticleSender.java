@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,6 @@
  */
 package org.b3log.solo.event.rhythm;
 
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.Date;
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
 import org.b3log.latke.event.AbstractEventListener;
@@ -40,16 +37,19 @@ import org.b3log.solo.model.Option;
 import org.b3log.solo.service.PreferenceQueryService;
 import org.json.JSONObject;
 
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Date;
+
 /**
  * This listener is responsible for sending article to B3log Rhythm.
- *
  * <p>
  * The B3log Rhythm article update interface: http://rhythm.b3log.org/article (POST).
  * </p>
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
  * @author ArmstrongCN
- * @version 1.0.2.8, Nov 20, 2015
+ * @version 1.0.2.11, Oct 24, 2017
  * @since 0.3.1
  */
 public final class ArticleSender extends AbstractEventListener<JSONObject> {
@@ -57,12 +57,7 @@ public final class ArticleSender extends AbstractEventListener<JSONObject> {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(ArticleSender.class.getName());
-
-    /**
-     * URL fetch service.
-     */
-    private final URLFetchService urlFetchService = URLFetchServiceFactory.getURLFetchService();
+    private static final Logger LOGGER = Logger.getLogger(ArticleSender.class);
 
     /**
      * URL of adding article to Rhythm.
@@ -78,15 +73,19 @@ public final class ArticleSender extends AbstractEventListener<JSONObject> {
         }
     }
 
+    /**
+     * URL fetch service.
+     */
+    private final URLFetchService urlFetchService = URLFetchServiceFactory.getURLFetchService();
+
     @Override
     public void action(final Event<JSONObject> event) throws EventException {
         final JSONObject data = event.getData();
 
         LOGGER.log(Level.DEBUG, "Processing an event[type={0}, data={1}] in listener[className={2}]",
-                new Object[]{event.getType(), data, ArticleSender.class.getName()});
+                event.getType(), data, ArticleSender.class.getName());
         try {
             final JSONObject originalArticle = data.getJSONObject(Article.ARTICLE);
-
             if (!originalArticle.getBoolean(Article.ARTICLE_IS_PUBLISHED)) {
                 LOGGER.log(Level.DEBUG, "Ignores post article[title={0}] to Rhythm", originalArticle.getString(Article.ARTICLE_TITLE));
 
@@ -97,7 +96,6 @@ public final class ArticleSender extends AbstractEventListener<JSONObject> {
             final PreferenceQueryService preferenceQueryService = beanManager.getReference(PreferenceQueryService.class);
 
             final JSONObject preference = preferenceQueryService.getPreference();
-
             if (null == preference) {
                 throw new EventException("Not found preference");
             }
@@ -107,8 +105,8 @@ public final class ArticleSender extends AbstractEventListener<JSONObject> {
             }
 
             if (Latkes.getServePath().contains("localhost")) {
-                LOGGER.log(Level.INFO, "Solo runs on local server, so should not send this article[id={0}, title={1}] to Rhythm",
-                        new Object[]{originalArticle.getString(Keys.OBJECT_ID), originalArticle.getString(Article.ARTICLE_TITLE)});
+                LOGGER.log(Level.TRACE, "Solo runs on local server, so should not send this article[id={0}, title={1}] to Rhythm",
+                        originalArticle.getString(Keys.OBJECT_ID), originalArticle.getString(Article.ARTICLE_TITLE));
                 return;
             }
 
@@ -133,12 +131,12 @@ public final class ArticleSender extends AbstractEventListener<JSONObject> {
 
             requestJSONObject.put(Article.ARTICLE, article);
             requestJSONObject.put(Common.BLOG_VERSION, SoloServletListener.VERSION);
-            requestJSONObject.put(Common.BLOG, "B3log Solo");
+            requestJSONObject.put(Common.BLOG, "Solo");
             requestJSONObject.put(Option.ID_C_BLOG_TITLE, preference.getString(Option.ID_C_BLOG_TITLE));
             requestJSONObject.put("blogHost", Latkes.getServePath());
             requestJSONObject.put("userB3Key", preference.optString(Option.ID_C_KEY_OF_SOLO));
             requestJSONObject.put("clientAdminEmail", preference.optString(Option.ID_C_ADMIN_EMAIL));
-            requestJSONObject.put("clientRuntimeEnv", Latkes.getRuntimeEnv().name());
+            requestJSONObject.put("clientRuntimeEnv", "LOCAL");
 
             httpRequest.setPayload(requestJSONObject.toString().getBytes("UTF-8"));
 

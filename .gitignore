@@ -11,8 +11,14 @@
 !nb-configuration.xml
 !.travis.yml
 !Dockerfile
+!gulpfile.js
+!package.json
 
 src/main/webapp/skins/*
 !src/main/webapp/skins/mobile
-!src/main/webapp/skins/next
-**/.DS_Store
+!src/main/webapp/skins/9IPHP
+
+src/main/webapp/markdowns/*
+!src/main/webapp/markdowns/README.md
+
+.DS_Store

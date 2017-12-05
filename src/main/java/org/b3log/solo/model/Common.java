@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,20 @@ package org.b3log.solo.model;
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
  * @author <a href="mailto:dongxu.wang@acm.org">Dongxu Wang</a>
- * @version 1.4.5.1, Nov 1, 2015
+ * @version 1.6.0.0, Sep 12, 2017
  * @since 0.3.1
  */
 public final class Common {
+
+    /**
+     * Key of keyword.
+     */
+    public static final String KEYWORD = "keyword";
+
+    /**
+     * Key of data.
+     */
+    public static final String DATA = "data";
 
     /**
      * Key of direction.
@@ -34,6 +44,11 @@ public final class Common {
      * Most used tags.
      */
     public static final String MOST_USED_TAGS = "mostUsedTags";
+
+    /**
+     * Most used categories.
+     */
+    public static final String MOST_USED_CATEGORIES = "mostUsedCategories";
 
     /**
      * Most comment count articles.
@@ -174,7 +189,7 @@ public final class Common {
      * Key of current user.
      */
     public static final String CURRENT_USER = "currentUser";
-    
+
     /**
      * Key of admin user.
      */

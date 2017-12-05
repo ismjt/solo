@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,9 @@
  */
 package org.b3log.solo.processor.console;
 
-
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.service.LangPropsService;
@@ -29,14 +26,16 @@ import org.b3log.latke.servlet.HTTPRequestMethod;
 import org.b3log.latke.servlet.annotation.RequestProcessing;
 import org.b3log.latke.servlet.annotation.RequestProcessor;
 import org.b3log.latke.servlet.renderer.JSONRenderer;
+import org.b3log.latke.util.Requests;
 import org.b3log.solo.model.Common;
 import org.b3log.solo.service.LinkMgmtService;
 import org.b3log.solo.service.LinkQueryService;
-import org.b3log.solo.util.QueryResults;
-import org.b3log.latke.util.Requests;
 import org.b3log.solo.service.UserQueryService;
+import org.b3log.solo.util.QueryResults;
 import org.json.JSONObject;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 /**
  * Link console request processing.
@@ -51,7 +50,7 @@ public class LinkConsole {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(LinkConsole.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(LinkConsole.class);
 
     /**
      * User query service.
@@ -79,7 +78,6 @@ public class LinkConsole {
 
     /**
      * Removes a link by the specified request.
-     * 
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -90,25 +88,22 @@ public class LinkConsole {
      * </pre>
      * </p>
      *
-     * @param request the specified http servlet request
+     * @param request  the specified http servlet request
      * @param response the specified http servlet response
-     * @param context the specified http request context
+     * @param context  the specified http request context
      * @throws Exception exception
      */
     @RequestProcessing(value = "/console/link/*", method = HTTPRequestMethod.DELETE)
     public void removeLink(final HttpServletRequest request, final HttpServletResponse response, final HTTPRequestContext context)
-        throws Exception {
+            throws Exception {
         if (!userQueryService.isAdminLoggedIn(request)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
-
         final JSONObject jsonObject = new JSONObject();
-
         renderer.setJSONObject(jsonObject);
 
         try {
@@ -128,7 +123,6 @@ public class LinkConsole {
 
     /**
      * Updates a link by the specified request.
-     * 
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -139,31 +133,28 @@ public class LinkConsole {
      * </pre>
      * </p>
      *
-     * @param request the specified http servlet request, for example,
-     * <pre>
-     * {
-     *     "link": {
-     *         "oId": "",
-     *         "linkTitle": "",
-     *         "linkAddress": "",
-     *         "linkDescription": ""
-     *     }
-     * }, see {@link org.b3log.solo.model.Link} for more details
-     * </pre>
-     * @param context the specified http request context
+     * @param request  the specified http servlet request, for example,
+     *                 {
+     *                 "link": {
+     *                 "oId": "",
+     *                 "linkTitle": "",
+     *                 "linkAddress": "",
+     *                 "linkDescription": ""
+     *                 }
+     *                 }, see {@link org.b3log.solo.model.Link} for more details
+     * @param context  the specified http request context
      * @param response the specified http servlet response
      * @throws Exception exception
      */
     @RequestProcessing(value = "/console/link/", method = HTTPRequestMethod.PUT)
     public void updateLink(final HttpServletRequest request, final HttpServletResponse response, final HTTPRequestContext context)
-        throws Exception {
+            throws Exception {
         if (!userQueryService.isAdminLoggedIn(request)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
 
         final JSONObject ret = new JSONObject();
@@ -189,7 +180,6 @@ public class LinkConsole {
 
     /**
      * Changes a link order by the specified link id and direction.
-     * 
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -200,29 +190,27 @@ public class LinkConsole {
      * </pre>
      * </p>
      *
-     * @param request the specified http servlet request, for example,
-     * <pre>
-     * {
-     *     "oId": "",
-     *     "direction": "" // "up"/"down"
-     * }
-     * </pre>
+     * @param request  the specified http servlet request, for example,
+     *                 {
+     *                 "oId": "",
+     *                 "direction": "" // "up"/"down"
+     *                 }
      * @param response the specified http servlet response
-     * @param context the specified http request context
-     * @throws Exception exception 
+     * @param context  the specified http request context
+     * @throws Exception exception
      */
     @RequestProcessing(value = "/console/link/order/", method = HTTPRequestMethod.PUT)
     public void changeOrder(final HttpServletRequest request,
-        final HttpServletResponse response,
-        final HTTPRequestContext context)
-        throws Exception {
+                            final HttpServletResponse response,
+                            final HTTPRequestContext context)
+            throws Exception {
         if (!userQueryService.isAdminLoggedIn(request)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
+
             return;
         }
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
 
         final JSONObject ret = new JSONObject();
@@ -250,7 +238,6 @@ public class LinkConsole {
 
     /**
      * Adds a link with the specified request.
-     * 
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -261,31 +248,28 @@ public class LinkConsole {
      * }
      * </pre>
      * </p>
-     * 
-     * @param request the specified http servlet request, for example,
-     * <pre>
-     * {
-     *     "link": {
-     *         "linkTitle": "",
-     *         "linkAddress": "",
-     *         "linkDescription": ""
-     *     }
-     * }
-     * </pre>
+     *
+     * @param request  the specified http servlet request, for example,
+     *                 {
+     *                 "link": {
+     *                 "linkTitle": "",
+     *                 "linkAddress": "",
+     *                 "linkDescription": ""
+     *                 }
+     *                 }
      * @param response the specified http servlet response
-     * @param context the specified http request context
+     * @param context  the specified http request context
      * @throws Exception exception
      */
     @RequestProcessing(value = "/console/link/", method = HTTPRequestMethod.POST)
     public void addLink(final HttpServletRequest request, final HttpServletResponse response, final HTTPRequestContext context)
-        throws Exception {
+            throws Exception {
         if (!userQueryService.isAdminLoggedIn(request)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
 
         final JSONObject ret = new JSONObject();
@@ -312,13 +296,11 @@ public class LinkConsole {
 
     /**
      * Gets links by the specified request.
-     * 
      * <p>
-     * The request URI contains the pagination arguments. For example, the 
+     * The request URI contains the pagination arguments. For example, the
      * request URI is /console/links/1/10/20, means the current page is 1, the
      * page size is 10, and the window size is 20.
      * </p>
-     * 
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -338,23 +320,23 @@ public class LinkConsole {
      * </pre>
      * </p>
      *
-     * @param request the specified http servlet request
+     * @param request  the specified http servlet request
      * @param response the specified http servlet response
-     * @param context the specified http request context
-     * @throws Exception exception 
+     * @param context  the specified http request context
+     * @throws Exception exception
      */
     @RequestProcessing(value = "/console/links/*/*/*"/* Requests.PAGINATION_PATH_PATTERN */,
-        method = HTTPRequestMethod.GET)
+            method = HTTPRequestMethod.GET)
     public void getLinks(final HttpServletRequest request,
-        final HttpServletResponse response,
-        final HTTPRequestContext context) throws Exception {
+                         final HttpServletResponse response,
+                         final HTTPRequestContext context) throws Exception {
         if (!userQueryService.isLoggedIn(request, response)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
+
             return;
         }
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
 
         try {
@@ -380,7 +362,6 @@ public class LinkConsole {
 
     /**
      * Gets the file with the specified request.
-     * 
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -395,22 +376,21 @@ public class LinkConsole {
      * }
      * </pre>
      * </p>
-     * 
-     * @param request the specified http servlet request
+     *
+     * @param request  the specified http servlet request
      * @param response the specified http servlet response
-     * @param context the specified http request context
+     * @param context  the specified http request context
      * @throws Exception exception
      */
     @RequestProcessing(value = "/console/link/*", method = HTTPRequestMethod.GET)
     public void getLink(final HttpServletRequest request, final HttpServletResponse response, final HTTPRequestContext context)
-        throws Exception {
+            throws Exception {
         if (!userQueryService.isLoggedIn(request, response)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
 
         try {

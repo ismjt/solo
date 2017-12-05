@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 package org.b3log.solo.service;
 
 
-import javax.inject.Inject;
 import org.b3log.latke.Keys;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.repository.Transaction;
 import org.b3log.latke.service.ServiceException;
 import org.b3log.latke.service.annotation.Service;
@@ -45,10 +45,10 @@ public class OptionMgmtService {
 
     /**
      * Adds or updates the specified option.
-     * 
+     *
      * @param option the specified option
      * @return option id
-     * @throws ServiceException 
+     * @throws ServiceException
      */
     public String addOrUpdateOption(final JSONObject option) throws ServiceException {
         final Transaction transaction = optionRepository.beginTransaction();
@@ -84,8 +84,8 @@ public class OptionMgmtService {
     }
 
     /**
-     * Removes the option specified by the given option id. 
-     * 
+     * Removes the option specified by the given option id.
+     *
      * @param optionId the given option id
      * @throws ServiceException service exception
      */
@@ -107,7 +107,7 @@ public class OptionMgmtService {
 
     /**
      * Sets the option repository with the specified option repository.
-     * 
+     *
      * @param optionRepository the specified option repository
      */
     public void setOptionRepository(final OptionRepository optionRepository) {

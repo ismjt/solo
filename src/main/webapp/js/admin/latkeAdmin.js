@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,16 @@
  * @description index for admin
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
- * @version 1.0.3.2, Sep 2, 2013
+ * @version 1.1.3.2, Mar 31, 2017
  */
 var Admin = function () {
     this.register = {};
     // 工具栏下的工具
     this.tools = ['#page-list', '#file-list', '#link-list', '#preference',
-        '#user-list', '#plugin-list', '#others'];
+        '#user-list', '#plugin-list', '#others', '#category-list'];
     // 多用户时，一般用户不能使用的功能
     this.adTools = ['link-list', 'preference', 'file-list', 'page-list',
-        'user-list', 'plugin-list', 'others'];
+        'user-list', 'plugin-list', 'others', 'category-list'];
 };
 
 $.extend(Admin.prototype, {
@@ -264,7 +264,7 @@ $.extend(Admin.prototype, {
 });
 
 var admin = new Admin();/*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -282,13 +282,13 @@ var admin = new Admin();/*
  * @fileoverview editor
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
- * @version 1.1.0.4, May 30, 2015
+ * @version 1.1.0.5, Nov 8, 2016
  */
 
 admin.editors = {};
 
 /*
- * @description Create Editor can use all editor. 
+ * @description Create SoloEditor can use all editor. 
  *                e.g: TinyMCE, wnd 
  * @constructor
  * @param conf 编辑器初始化参数
@@ -298,7 +298,7 @@ admin.editors = {};
  * @param conf.type 编辑器种类
  * @param conf.codeMirrorLanguage codeMirror 编辑器当前解析语言
  */
-var Editor = function (conf) {
+var SoloEditor = function (conf) {
     this._defaults = {
         type: "tinyMCE",
         kind: "",
@@ -310,7 +310,7 @@ var Editor = function (conf) {
     this._init();
 };
 
-$.extend(Editor.prototype, {
+$.extend(SoloEditor.prototype, {
     /*
      * @description 初始化
      */
@@ -363,7 +363,7 @@ admin.editors.articleEditor = {};
 admin.editors.abstractEditor = {};
 admin.editors.pageEditor = {};
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -488,7 +488,7 @@ admin.editors.tinyMCE = {
     }
 };
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -593,7 +593,7 @@ admin.editors.KindEditor = {
     }
 };
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -608,21 +608,168 @@ admin.editors.KindEditor = {
  * limitations under the License.
  */
 /**
- * @fileoverview markdowm CodeMirror editor 
+ * @fileoverview markdowm CodeMirror editor
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.2.1.4, Aug 26, 2016
+ * @version 1.4.2.4, Apr 25, 2017
  */
 
 Util.processClipBoard = function (text, cm) {
-    var text = toMarkdown(text, {converters: [
-        ], gfm: true});
+    var text = toMarkdown(text, {
+        converters: [], gfm: true
+    });
 
     // ascii 160 替换为 30
     text = $('<div>' + text + '</div>').text().replace(/\n{2,}/g, '\n\n').replace(/ /g, ' ');
     return $.trim(text);
 };
+/**
+ * @description 获取字符串开始位置
+ * @param {String} string 需要匹配的字符串
+ * @param {String} prefix 匹配字符
+ * @return {Integer} 以匹配字符开头的位置
+ */
+Util.startsWith = function (string, prefix) {
+    return (string.match("^" + prefix) == prefix);
+};
+/**
+ * 粘贴中包含图片和文案时，需要处理为 markdown 语法
+ * @param {object} clipboardData
+ * @param {object} cm
+ * @returns {String}
+ */
+Util.processClipBoard = function (clipboardData, cm) {
+    if (clipboardData.getData("text/html") === '' && clipboardData.items.length === 2) {
+        return '';
+    }
+
+    var text = toMarkdown(clipboardData.getData("text/html"), {
+        converters: [
+            {
+                filter: 'img',
+                replacement: function (innerHTML, node) {
+                    if (1 === node.attributes.length) {
+                        return "";
+                    }
+                    return "![](" + node.src + ")";
+                }
+            }
+        ], gfm: true
+    });
+
+    // code 中 <, > 进行转义
+    var codes = text.split('```');
+    if (codes.length > 1) {
+        for (var i = 0, iMax = codes.length; i < iMax; i++) {
+            if (i % 2 === 1) {
+                codes[i] = codes[i].replace(/<\/span><span style="color:#\w{6};">/g, '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+        }
+    }
+    text = codes.join('```');
+
+    // ascii 160 替换为 30
+    text = $('<div>' + text + '</div>').text().replace(/\n{2,}/g, '\n\n').replace(/ /g, ' ');
+    return $.trim(text);
+};
+
+Util.initUploadFile = function (obj) {
+    var isImg = false;
+    $('#' + obj.id).fileupload({
+        multipart: true,
+        pasteZone: obj.pasteZone,
+        dropZone: obj.pasteZone,
+        url: "https://up.qbox.me/",
+        paramName: "file",
+        add: function (e, data) {
+            if (data.files[0].name) {
+                var processName = data.files[0].name.match(/[a-zA-Z0-9.]/g).join('');
+                filename = getUUID() + '-' + processName;
+
+                // 文件名称全为中文时，移除 ‘-’
+                if (processName.split('.')[0] === '') {
+                    filename = getUUID() + processName;
+                }
+            } else {
+                filename = getUUID() + '.' + data.files[0].type.split("/")[1];
+            }
+
+
+            if (window.File && window.FileReader && window.FileList && window.Blob) {
+                var reader = new FileReader();
+                reader.readAsArrayBuffer(data.files[0]);
+                reader.onload = function (evt) {
+                    var fileBuf = new Uint8Array(evt.target.result.slice(0, 11));
+                    isImg = data.files[0].type.indexOf('image') === 0 ? true : false;
+
+                    data.submit();
+                }
+            } else {
+                data.submit();
+            }
+        },
+        formData: function (form) {
+            var data = form.serializeArray();
+
+            data.push({
+                name: 'key', value: "file/" + (new Date()).getFullYear() + "/"
+                + ((new Date()).getMonth() + 1) + '/' + filename
+            });
+
+            data.push({name: 'token', value: obj.qiniuUploadToken});
+
+            return data;
+        },
+        submit: function (e, data) {
+            if (obj.editor.replaceRange) {
+                var cursor = obj.editor.getCursor();
+                obj.editor.replaceRange(obj.uploadingLabel, cursor, cursor);
+            } else {
+                $('#' + obj.id + ' input').prop('disabled', false);
+            }
+        },
+        done: function (e, data) {
+            var qiniuKey = data.result.key;
+            if (!qiniuKey) {
+                alert("Upload error");
+
+                return;
+            }
+
+            if (obj.editor.replaceRange) {
+                var cursor = obj.editor.getCursor();
+
+                if (isImg) {
+                    obj.editor.replaceRange('![' + filename + '](' + obj.qiniuDomain + '/' + qiniuKey + ') \n\n',
+                        CodeMirror.Pos(cursor.line, cursor.ch - obj.uploadingLabel.length), cursor);
+                } else {
+                    obj.editor.replaceRange('[' + filename + '](' + obj.qiniuDomain + '/' + qiniuKey + ') \n\n',
+                        CodeMirror.Pos(cursor.line, cursor.ch - obj.uploadingLabel.length), cursor);
+                }
+            } else {
+                obj.editor.$it.val('![' + filename + '](' + obj.qiniuDomain + '/' + qiniuKey + ') \n\n');
+                $('#' + obj.id + ' input').prop('disabled', false);
+            }
+        },
+        fail: function (e, data) {
+            alert("Upload error: " + data.errorThrown);
+            if (obj.editor.replaceRange) {
+                var cursor = obj.editor.getCursor();
+                obj.editor.replaceRange('',
+                    CodeMirror.Pos(cursor.line, cursor.ch - obj.uploadingLabel.length), cursor);
+            } else {
+                $('#' + obj.id + ' input').prop('disabled', false);
+            }
+        }
+    }).on('fileuploadprocessalways', function (e, data) {
+        var currentFile = data.files[data.index];
+        if (data.files.error && currentFile.error) {
+            alert(currentFile.error);
+        }
+    });
+}
+
 admin.editors.CodeMirror = {
     /*
      * @description 初始化编辑器
@@ -635,32 +782,107 @@ admin.editors.CodeMirror = {
      * @returns {obj} editor
      */
     init: function (conf) {
+        var emojis = "+1,-1,100,1234,8ball,a,ab,abc,abcd,accept,aerial_tramway,airplane,alarm_clock,alien,ambulance,anchor,angel,anger,angry,anguished,ant,apple,aquarius,aries,arrow_backward,arrow_double_down,arrow_double_up,arrow_down,arrow_down_small,arrow_forward,arrow_heading_down,arrow_heading_up,arrow_left,arrow_lower_left,arrow_lower_right,arrow_right,arrow_right_hook,arrow_up,arrow_up_down,arrow_up_small,arrow_upper_left,arrow_upper_right,arrows_clockwise,arrows_counterclockwise,art,articulated_lorry,astonished,atm,b,baby,baby_bottle,baby_chick,baby_symbol,back,baggage_claim,balloon,ballot_box_with_check,bamboo,banana,bangbang,bank,bar_chart,barber,baseball,basketball,bath,bathtub,battery,bear,bee,beer,beers,beetle,beginner,bell,bento,bicyclist,bike,bikini,bird,birthday,black_circle,black_joker,black_medium_small_square,black_medium_square,black_nib,black_small_square,black_square,black_square_button,blossom,blowfish,blue_book,blue_car,blue_heart,blush,boar,boat,bomb,book,bookmark,bookmark_tabs,books,boom,boot,bouquet,bow,bowling,bowtie,boy,bread,bride_with_veil,bridge_at_night,briefcase,broken_heart,bug,bulb,bullettrain_front,bullettrain_side,bus,busstop,bust_in_silhouette,busts_in_silhouette,cactus,cake,calendar,calling,camel,camera,cancer,candy,capital_abcd,capricorn,car,card_index,carousel_horse,cat,cat2,cd,chart,chart_with_downwards_trend,chart_with_upwards_trend,checkered_flag,cherries,cherry_blossom,chestnut,chicken,children_crossing,chocolate_bar,christmas_tree,church,cinema,circus_tent,city_sunrise,city_sunset,cl,clap,clapper,clipboard,clock1,clock10,clock1030,clock11,clock1130,clock12,clock1230,clock130,clock2,clock230,clock3,clock330,clock4,clock430,clock5,clock530,clock6,clock630,clock7,clock730,clock8,clock830,clock9,clock930,closed_book,closed_lock_with_key,closed_umbrella,cloud,clubs,cn,cocktail,coffee,cold_sweat,collision,computer,confetti_ball,confounded,confused,congratulations,construction,construction_worker,convenience_store,cookie,cool,cop,copyright,corn,couple,couple_with_heart,couplekiss,cow,cow2,credit_card,crescent_moon,crocodile,crossed_flags,crown,cry,crying_cat_face,crystal_ball,cupid,curly_loop,currency_exchange,curry,custard,customs,cyclone,dancer,dancers,dango,dart,dash,date,de,deciduous_tree,department_store,diamond_shape_with_a_dot_inside,diamonds,disappointed,disappointed_relieved,dizzy,dizzy_face,do_not_litter,dog,dog2,dollar,dolls,dolphin,donut,door,doughnut,dragon,dragon_face,dress,dromedary_camel,droplet,dvd,e-mail,ear,ear_of_rice,earth_africa,earth_americas,earth_asia,egg,eggplant,eight,eight_pointed_black_star,eight_spoked_asterisk,electric_plug,elephant,email,end,envelope,es,euro,european_castle,european_post_office,evergreen_tree,exclamation,expressionless,eyeglasses,eyes,facepunch,factory,fallen_leaf,family,fast_forward,fax,fearful,feelsgood,feet,ferris_wheel,file_folder,finnadie,fire,fire_engine,fireworks,first_quarter_moon,first_quarter_moon_with_face,fish,fish_cake,fishing_pole_and_fish,fist,five,flags,flashlight,floppy_disk,flower_playing_cards,flushed,foggy,football,fork_and_knife,fountain,four,four_leaf_clover,fr,free,fried_shrimp,fries,frog,frowning,fu,fuelpump,full_moon,full_moon_with_face,game_die,gb,gem,gemini,ghost,gift,gift_heart,girl,globe_with_meridians,goat,goberserk,godmode,golf,grapes,green_apple,green_book,green_heart,grey_exclamation,grey_question,grimacing,grin,grinning,guardsman,guitar,gun,haircut,hamburger,hammer,hamster,hand,handbag,hankey,hash,hatched_chick,hatching_chick,headphones,hear_no_evil,heart,heart_decoration,heart_eyes,heart_eyes_cat,heartbeat,heartpulse,hearts,heavy_check_mark,heavy_division_sign,heavy_dollar_sign,heavy_exclamation_mark,heavy_minus_sign,heavy_multiplication_x,heavy_plus_sign,helicopter,herb,hibiscus,high_brightness,high_heel,hocho,honey_pot,honeybee,horse,horse_racing,hospital,hotel,hotsprings,hourglass,hourglass_flowing_sand,house,house_with_garden,hurtrealbad,hushed,ice_cream,icecream,id,ideograph_advantage,imp,inbox_tray,incoming_envelope,information_desk_person,information_source,innocent,interrobang,iphone,it,izakaya_lantern,jack_o_lantern,japan,japanese_castle,japanese_goblin,japanese_ogre,jeans,joy,joy_cat,jp,key,keycap_ten,kimono,kiss,kissing,kissing_cat,kissing_closed_eyes,kissing_face,kissing_heart,kissing_smiling_eyes,koala,koko,kr,large_blue_circle,large_blue_diamond,large_orange_diamond,last_quarter_moon,last_quarter_moon_with_face,laughing,leaves,ledger,left_luggage,left_right_arrow,leftwards_arrow_with_hook,lemon,leo,leopard,libra,light_rail,link,lips,lipstick,lock,lock_with_ink_pen,lollipop,loop,loudspeaker,love_hotel,love_letter,low_brightness,m,mag,mag_right,mahjong,mailbox,mailbox_closed,mailbox_with_mail,mailbox_with_no_mail,man,man_with_gua_pi_mao,man_with_turban,mans_shoe,maple_leaf,mask,massage,meat_on_bone,mega,melon,memo,mens,metal,metro,microphone,microscope,milky_way,minibus,minidisc,mobile_phone_off,money_with_wings,moneybag,monkey,monkey_face,monorail,mortar_board,mount_fuji,mountain_bicyclist,mountain_cableway,mountain_railway,mouse,mouse2,movie_camera,moyai,muscle,mushroom,musical_keyboard,musical_note,musical_score,mute,nail_care,name_badge,neckbeard,necktie,negative_squared_cross_mark,neutral_face,new,new_moon,new_moon_with_face,newspaper,ng,nine,no_bell,no_bicycles,no_entry,no_entry_sign,no_good,no_mobile_phones,no_mouth,no_pedestrians,no_smoking,non-potable_water,nose,notebook,notebook_with_decorative_cover,notes,nut_and_bolt,o,o2,ocean,octocat,octopus,oden,office,ok,ok_hand,ok_woman,older_man,older_woman,on,oncoming_automobile,oncoming_bus,oncoming_police_car,oncoming_taxi,one,open_file_folder,open_hands,open_mouth,ophiuchus,orange_book,outbox_tray,ox,package,page_facing_up,page_with_curl,pager,palm_tree,panda_face,paperclip,parking,part_alternation_mark,partly_sunny,passport_control,paw_prints,peach,pear,pencil,pencil2,penguin,pensive,performing_arts,persevere,person_frowning,person_with_blond_hair,person_with_pouting_face,phone,pig,pig2,pig_nose,pill,pineapple,pisces,pizza,plus1,point_down,point_left,point_right,point_up,point_up_2,police_car,poodle,poop,post_office,postal_horn,postbox,potable_water,pouch,poultry_leg,pound,pouting_cat,pray,princess,punch,purple_heart,purse,pushpin,put_litter_in_its_place,question,rabbit,rabbit2,racehorse,radio,radio_button,rage,rage1,rage2,rage3,rage4,railway_car,rainbow,raised_hand,raised_hands,raising_hand,ram,ramen,rat,recycle,red_car,red_circle,registered,relaxed,relieved,repeat,repeat_one,restroom,revolving_hearts,rewind,ribbon,rice,rice_ball,rice_cracker,rice_scene,ring,rocket,roller_coaster,rooster,rose,rotating_light,round_pushpin,rowboat,ru,rugby_football,runner,running,running_shirt_with_sash,sa,sagittarius,sailboat,sake,sandal,santa,satellite,satisfied,saxophone,school,school_satchel,scissors,scorpius,scream,scream_cat,scroll,seat,secret,see_no_evil,seedling,seven,shaved_ice,sheep,shell,ship,shipit,shirt,shit,shoe,shower,signal_strength,six,six_pointed_star,ski,skull,sleeping,sleepy,slot_machine,small_blue_diamond,small_orange_diamond,small_red_triangle,small_red_triangle_down,smile,smile_cat,smiley,smiley_cat,smiling_imp,smirk,smirk_cat,smoking,snail,snake,snowboarder,snowflake,snowman,sob,soccer,soon,sos,sound,space_invader,spades,spaghetti,sparkle,sparkler,sparkles,sparkling_heart,speak_no_evil,speaker,speech_balloon,speedboat,squirrel,star,star2,stars,station,statue_of_liberty,steam_locomotive,stew,straight_ruler,strawberry,stuck_out_tongue,stuck_out_tongue_closed_eyes,stuck_out_tongue_winking_eye,sun_with_face,sunflower,sunglasses,sunny,sunrise,sunrise_over_mountains,surfer,sushi,suspect,suspension_railway,sweat,sweat_drops,sweat_smile,sweet_potato,swimmer,symbols,syringe,tada,tanabata_tree,tangerine,taurus,taxi,tea,telephone,telephone_receiver,telescope,tennis,tent,thought_balloon,three,thumbsdown,thumbsup,ticket,tiger,tiger2,tired_face,tm,toilet,tokyo_tower,tomato,tongue,top,tophat,tractor,traffic_light,train,train2,tram,triangular_flag_on_post,triangular_ruler,trident,triumph,trolleybus,trollface,trophy,tropical_drink,tropical_fish,truck,trumpet,tshirt,tulip,turtle,tv,twisted_rightwards_arrows,two,two_hearts,two_men_holding_hands,two_women_holding_hands,u5272,u5408,u55b6,u6307,u6708,u6709,u6e80,u7121,u7533,u7981,u7a7a,uk,umbrella,unamused,underage,unlock,up,us,v,vertical_traffic_light,vhs,vibration_mode,video_camera,video_game,violin,virgo,volcano,vs,walking,waning_crescent_moon,waning_gibbous_moon,warning,watch,water_buffalo,watermelon,wave,wavy_dash,waxing_crescent_moon,waxing_gibbous_moon,wc,weary,wedding,whale,whale2,wheelchair,white_check_mark,white_circle,white_flower,white_large_square,white_medium_small_square,white_medium_square,white_small_square,white_square_button,wind_chime,wine_glass,wink,wolf,woman,womans_clothes,womans_hat,womens,worried,wrench,x,yellow_heart,yen,yum,zap,zero,zzz".split(",");
+
+        CodeMirror.registerHelper("hint", "emoji", function (cm) {
+            var word = /[\w$]+/;
+            var cur = cm.getCursor(), curLine = cm.getLine(cur.line);
+            var start = cur.ch, end = start;
+            while (end < curLine.length && word.test(curLine.charAt(end))) {
+                ++end;
+            }
+            while (start && word.test(curLine.charAt(start - 1))) {
+                --start;
+            }
+            var tok = cm.getTokenAt(cur);
+            var autocompleteHints = [];
+            var input = tok.string.trim();
+            var matchCnt = 0;
+            for (var i = 0; i < emojis.length; i++) {
+                var displayText = emojis[i];
+                var text = emojis[i];
+                if (Util.startsWith(text, input)) {
+                    autocompleteHints.push({
+                        displayText: '<span style="font-size: 1rem;line-height:22px"><img style="width: 1rem;margin:3px 0;float:left" src="'
+                        + latkeConfig.servePath + '/js/lib/emojify.js-1.1.0/images/basic/' + text + '.png"> ' +
+                        displayText.toString() + '</span>',
+                        text: ":" + text + ": "
+                    });
+                    matchCnt++;
+                }
+
+                if (matchCnt > 10) {
+                    break;
+                }
+            }
+
+            return {list: autocompleteHints, from: CodeMirror.Pos(cur.line, start), to: CodeMirror.Pos(cur.line, end)};
+        });
+
+        CodeMirror.commands.autocompleteEmoji = function (cm) {
+            cm.showHint({hint: CodeMirror.hint.emoji, completeSingle: false});
+            return CodeMirror.Pass;
+        };
+
         // init codemirror
-        var commentEditor = new CodeMirrorEditor({
+        var commentEditor = new Editor({
             element: document.getElementById(conf.id),
             dragDrop: false,
             lineWrapping: true,
+            status: false,
+            htmlURL: latkeConfig.servePath + '/console/markdown/2html',
             toolbar: [
                 {name: 'bold'},
                 {name: 'italic'},
-                '|',
-                {name: 'link'},
                 {name: 'quote'},
+                {name: 'link'},
                 {name: 'unordered-list'},
                 {name: 'ordered-list'},
-                '|',
+                {
+                    name: 'image',
+                    html: '<span style="display: inline-block;top:1px" class="tooltipped tooltipped-n" aria-label="' + Label.uploadFilesLabel + '" ><form id="' + conf.id + 'fileUpload" method="POST" enctype="multipart/form-data"><label class="icon-upload"><input type="file"/></label></form></span>'
+                },
                 {name: 'redo'},
                 {name: 'undo'},
-                '|',
-                {name: 'preview'}
-            ],
+                {name: 'preview'},
+                {name: 'fullscreen'}],
             extraKeys: {
+                "Cmd-/": "autocompleteEmoji",
                 "Ctrl-/": "autocompleteEmoji"
-            },
-            status: false
+            }
         });
         commentEditor.render();
+
+        Util.initUploadFile({
+            "id": conf.id + 'fileUpload',
+            "pasteZone": $('#' + conf.id).next().next(),
+            "qiniuUploadToken": qiniu.qiniuUploadToken,
+            "editor": commentEditor.codemirror,
+            "uploadingLabel": 'uploading...',
+            "qiniuDomain": '//' + qiniu.qiniuDomain
+        });
+
         this[conf.id] = commentEditor.codemirror;
+
+        this[conf.id].on('changes', function (cm) {
+            if ($('#' + conf.id).parent().find('.CodeMirror-preview').length === 0) {
+                return false;
+            }
+
+            $.ajax({
+                url: latkeConfig.servePath + '/console/markdown/2html',
+                type: "POST",
+                cache: false,
+                data: {
+                    markdownText: cm.getValue()
+                },
+                success: function (result, textStatus) {
+                    $('#' + conf.id).parent().find('.CodeMirror-preview').html(result.html);
+                    hljs.initHighlighting.called = false;
+                    hljs.initHighlighting();
+                }
+            });
+        });
 
         // after render, call back function
         if (typeof (conf.fun) === "function") {
@@ -694,7 +916,7 @@ admin.editors.CodeMirror = {
         $('.editor-toolbar').remove();
     }
 };/*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -808,7 +1030,7 @@ $.extend(TablePaginate.prototype, {
     }
 });
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -827,7 +1049,7 @@ $.extend(TablePaginate.prototype, {
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.3.4.4, Jan 27, 2016
+ * @version 1.4.6.7, Oct 19, 2017
  */
 admin.article = {
     currentEditorType: '',
@@ -843,6 +1065,52 @@ admin.article = {
     autoSaveDraftTimer: "",
     // 自动保存间隔
     AUTOSAVETIME: 1000 * 60,
+    /**
+     * 初始化上传组建
+     */
+    initUploadFile: function (id) {
+        var filename = "";
+        $('#' + id).fileupload({
+            multipart: true,
+            url: "https://up.qbox.me",
+            add: function (e, data) {
+                filename = data.files[0].name;
+
+                data.submit();
+
+                $('#' + id + ' span').text('uploading...');
+            },
+            formData: function (form) {
+                var data = form.serializeArray();
+                var ext = filename.substring(filename.lastIndexOf(".") + 1);
+
+                data.push({name: 'key', value: getUUID() + "." + ext});
+                data.push({name: 'token', value: qiniu.qiniuUploadToken});
+
+                return data;
+            },
+            done: function (e, data) {
+                $('#' + id + ' span').text('');
+                var qiniuKey = data.result.key;
+                if (!qiniuKey) {
+                    alert("Upload error, please check Qiniu configurations");
+
+                    return;
+                }
+
+                $('#' + id).after('<div>![' + data.files[0].name + '](http://'
+                        + qiniu.qiniuDomain + qiniuKey + ')</div>');
+            },
+            fail: function (e, data) {
+                $('#' + id + ' span').text("Upload error, please check Qiniu configurations [" + data.errorThrown + "]");
+            }
+        }).on('fileuploadprocessalways', function (e, data) {
+            var currentFile = data.files[data.index];
+            if (data.files.error && currentFile.error) {
+                alert(currentFile.error);
+            }
+        });
+    },
     /**
      * @description 获取文章并把值塞入发布文章页面 
      * @param {String} id 文章 id
@@ -1132,10 +1400,12 @@ admin.article = {
         if (this.status) {
             if (this.status.isArticle) {
                 $("#unSubmitArticle").show();
-                $("#submitArticle").hide();
+                $("#saveArticle").hide();
+                $("#submitArticle").show();
             } else {
                 $("#submitArticle").show();
                 $("#unSubmitArticle").hide();
+                $("#saveArticle").show();
             }
             if (this.status.articleHadBeenPublished) {
                 $("#postToCommunityPanel").hide();
@@ -1146,6 +1416,7 @@ admin.article = {
         } else {
             $("#submitArticle").show();
             $("#unSubmitArticle").hide();
+            $("#saveArticle").show();
             // 1.0.0 开始默认会发布到社区
             // $("#postToCommunityPanel").show();
         }
@@ -1183,7 +1454,7 @@ admin.article = {
             }
         });
 
-        $(".markdown-preview-main").html("");
+        $(".editor-preview-active").html("").removeClass('editor-preview-active');
         $("#uploadContent").remove();
     },
     /**
@@ -1224,7 +1495,7 @@ admin.article = {
                     height: 160,
                     buttonText: Label.selectLabel,
                     data: tags
-                });
+                }).innerWidth($("#tag").parent().width() - 68);
 
                 $("#loadMsg").text("");
             }
@@ -1247,57 +1518,17 @@ admin.article = {
             }
         });
 
-        // upload
-        var qiniu = window.qiniu;
-
-        var filename = "";
-        $('#articleUpload').fileupload({
-            multipart: true,
-            url: "http://upload.qiniu.com/",
-            add: function (e, data) {
-                filename = data.files[0].name;
-
-                data.submit();
-            },
-            formData: function (form) {
-                var data = form.serializeArray();
-                var ext = filename.substring(filename.lastIndexOf(".") + 1);
-
-                data.push({name: 'key', value: getUUID() + "." + ext});
-                data.push({name: 'token', value: qiniu.qiniuUploadToken});
-
-                return data;
-            },
-            done: function (e, data) {
-                var qiniuKey = data.result.key;
-                if (!qiniuKey) {
-                    alert("Upload error");
-
-                    return;
-                }
-
-                $('#articleUpload').after('<div id="uploadContent">!<a target="_blank" href="http://' + qiniu.qiniuDomain + qiniuKey + '">[' + filename + ']</a>(http://'
-                        + qiniu.qiniuDomain + qiniuKey + ')</div>');
-            },
-            fail: function (e, data) {
-                alert("Upload error: " + data.errorThrown);
-            }
-        }).on('fileuploadprocessalways', function (e, data) {
-            var currentFile = data.files[data.index];
-            if (data.files.error && currentFile.error) {
-                alert(currentFile.error);
-            }
-        });
+        this.initUploadFile('articleUpload');
 
         // editor
-        admin.editors.articleEditor = new Editor({
+        admin.editors.articleEditor = new SoloEditor({
             id: "articleContent",
             kind: "all",
             fun: fun,
             height: 500
         });
 
-        admin.editors.abstractEditor = new Editor({
+        admin.editors.abstractEditor = new SoloEditor({
             id: "abstract",
             kind: "simple",
             height: 200
@@ -1485,7 +1716,7 @@ function getUUID() {
 }
 ;
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1615,7 +1846,7 @@ admin.comment = {
     }
 };
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1764,7 +1995,7 @@ admin.register["article-list"] =  {
     "init": admin.articleList.init,
     "refresh": admin.articleList.getList
 }/*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1877,7 +2108,7 @@ admin.register["draft-list"] =  {
     "init": admin.draftList.init,
     "refresh": admin.draftList.getList
 };/*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1896,7 +2127,7 @@ admin.register["draft-list"] =  {
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.2.4, May 30, 2015
+ * @version 1.2.3.6, Sep 21, 2017
  */
 
 /* page-list 相关操作 */
@@ -1955,7 +2186,7 @@ admin.pageList = {
         }
 
         admin.pageList.currentEditorType = Label.editorType;
-        admin.editors.pageEditor = new Editor({
+        admin.editors.pageEditor = new SoloEditor({
             language: language,
             kind: "all",
             id: "pageContent"
@@ -2018,20 +2249,24 @@ admin.pageList = {
                         } else {
                             pageData[i].pageOrder = '<div class="table-center" style="width:14px">\
                                         <span onclick="admin.pageList.changeOrder(' + pages[i].oId + ', ' + i + ', \'down\');" \
-                                        class="table-downIcon"></span></div>';
+                                        class="icon-move-down"></span></div>';
                         }
                     } else if (i === pages.length - 1) {
                         pageData[i].pageOrder = '<div class="table-center" style="width:14px">\
-                                    <span onclick="admin.pageList.changeOrder(' + pages[i].oId + ', ' + i + ', \'up\');" class="table-upIcon"></span>\
+                                    <span onclick="admin.pageList.changeOrder(' + pages[i].oId + ', ' + i + ', \'up\');" class="icon-move-up"></span>\
                                     </div>';
                     } else {
                         pageData[i].pageOrder = '<div class="table-center" style="width:38px">\
-                                    <span onclick="admin.pageList.changeOrder(' + pages[i].oId + ', ' + i + ', \'up\');" class="table-upIcon"></span>\
-                                    <span onclick="admin.pageList.changeOrder(' + pages[i].oId + ', ' + i + ', \'down\');" class="table-downIcon"></span>\
+                                    <span onclick="admin.pageList.changeOrder(' + pages[i].oId + ', ' + i + ', \'up\');" class="icon-move-up"></span>\
+                                    <span onclick="admin.pageList.changeOrder(' + pages[i].oId + ', ' + i + ', \'down\');" class="icon-move-down"></span>\
                                     </div>';
                     }
 
-                    pageData[i].pageTitle = "<a class='no-underline' href='" + pages[i].pagePermalink + "' target='_blank'>" +
+                    var pageIcon = '';
+                    if (pages[i].pageIcon !== '') {
+                      pageIcon = "<img class='navigation-icon' src='" + pages[i].pageIcon + "'/> ";
+                    }
+                    pageData[i].pageTitle = pageIcon + "<a class='no-underline' href='" + pages[i].pagePermalink + "' target='_blank'>" +
                             pages[i].pageTitle + "</a>";
                     pageData[i].pagePermalink = "<a class='no-underline' href='" + pages[i].pagePermalink + "' target='_blank'>"
                             + pages[i].pagePermalink + "</a>";
@@ -2074,6 +2309,7 @@ admin.pageList = {
                 $("#pageTitle").val(result.page.pageTitle);
                 $("#pagePermalink").val(result.page.pagePermalink);
                 $("#pageTarget").val(result.page.pageOpenTarget);
+                $("#pageIcon").val(result.page.pageIcon);
                 if (result.page.pageType === "page") {
                     $($(".fn-type").get(1)).click();
                 } else {
@@ -2156,7 +2392,8 @@ admin.pageList = {
                     "pagePermalink": pagePermalink,
                     "pageCommentable": $("#pageCommentable").prop("checked"),
                     "pageType": admin.pageList.type,
-                    "pageOpenTarget": $("#pageTarget").val()
+                    "pageOpenTarget": $("#pageTarget").val(),
+                    "pageIcon": $("#pageIcon").val()
                 }
             };
 
@@ -2175,6 +2412,7 @@ admin.pageList = {
                     admin.pageList.id = "";
                     $("#pagePermalink").val("");
                     $("#pageTitle").val("");
+                    $("#pageIcon").val("");
                     $("#pageCommentable").prop("cheked", false);
                     $("#pageTarget").val("_self");
                     $($(".fn-type").get(0)).click();
@@ -2222,7 +2460,8 @@ admin.pageList = {
                     "pageCommentable": $("#pageCommentable").prop("checked"),
                     "pageType": admin.pageList.type,
                     "pageOpenTarget": $("#pageTarget").val(),
-                    "pageEditorType": admin.pageList.currentEditorType
+                    "pageEditorType": admin.pageList.currentEditorType,
+                    "pageIcon": $("#pageIcon").val()
                 }
             };
 
@@ -2242,6 +2481,7 @@ admin.pageList = {
 
                     admin.pageList.getList(admin.pageList.pageInfo.currentPage);
                     $("#pageTitle").val("");
+                    $("#pageIcon").val("");
                     $("#pagePermalink").val("");
                     $("#pageCommentable").prop("cheked", false);
                     $("#pageTarget").val("_self");
@@ -2324,7 +2564,7 @@ admin.register["page-list"] = {
     "refresh": admin.pageList.getList
 }
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2338,138 +2578,181 @@ admin.register["page-list"] = {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 /**
- * others for admin
+ * others for admin.
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.0.8, Jul 27, 2016
+ * @version 1.3.0.0, Nov 11, 2017
  */
 
 /* oterhs 相关操作 */
 admin.others = {
-    /*
-     * @description 初始化
-     */
-    init: function () {
-        $("#tabOthers").tabs();
+  /*
+   * @description 初始化
+   */
+  init: function () {
+    $("#tabOthers").tabs();
 
-        $.ajax({
-            url: latkeConfig.servePath + "/console/reply/notification/template",
-            type: "GET",
-            cache: false,
-            success: function (result, textStatus) {
-                $("#tipMsg").text(result.msg);
-                if (!result.sc) {
-                    $("#loadMsg").text("");
-                    return;
-                }
+    $.ajax({
+      url: latkeConfig.servePath + "/console/reply/notification/template",
+      type: "GET",
+      cache: false,
+      success: function (result, textStatus) {
+        $("#tipMsg").text(result.msg);
+        if (!result.sc) {
+          $("#loadMsg").text("");
+          return;
+        }
 
-                $("#replayEmailTemplateTitle").val(result.replyNotificationTemplate.subject);
-                $("#replayEmailTemplateBody").val(result.replyNotificationTemplate.body);
+        $("#replayEmailTemplateTitle").val(result.replyNotificationTemplate.subject);
+        $("#replayEmailTemplateBody").val(result.replyNotificationTemplate.body);
 
-                $("#loadMsg").text("");
-            }
-        });
-    },
-    /*
-     * @description 移除未使用的标签。
-     */
-    removeUnusedTags: function () {
-        $("#tipMsg").text("");
+        $("#loadMsg").text("");
+      }
+    });
+  },
+  /*
+   * @description 移除未使用的标签
+   */
+  removeUnusedTags: function () {
+    $("#tipMsg").text("");
 
-        $.ajax({
-            url: latkeConfig.servePath + "/console/tag/unused",
-            type: "DELETE",
-            cache: false,
-            success: function (result, textStatus) {
-                $("#tipMsg").text(result.msg);
-            }
-        });
-    },
-    /*
-     * @description 移除未使用的标签。
-     */
-    exportSQL: function () {
-        $("#tipMsg").text("");
+    $.ajax({
+      url: latkeConfig.servePath + "/console/tag/unused",
+      type: "DELETE",
+      cache: false,
+      success: function (result, textStatus) {
+        $("#tipMsg").text(result.msg);
+      }
+    });
+  },
+  /*
+   * @description 导出数据为 SQL 文件
+   */
+  exportSQL: function () {
+    $("#tipMsg").text("");
 
-        $.ajax({
-            url: latkeConfig.servePath + "/console/export/sql",
-            type: "GET",
-            cache: false,
-            success: function (result, textStatus) {
-                // AJAX 下载文件的话这里会发两次请求，用 sc 来判断是否是文件，如果没有 sc 说明文件可以下载（实际上就是 result）
-                if (!result.sc) {
-                    // 再发一次请求进行正式下载
-                    window.location = latkeConfig.servePath + "/console/export/sql";
-                } else {
-                    $("#tipMsg").text(result.msg);
-                }
-            }
-        });
-    },
-    /*
-     * 获取未使用的标签。
-     * XXX: Not used this function yet.
-     */
-    getUnusedTags: function () {
-        $.ajax({
-            url: latkeConfig.servePath + "/console/tag/unused",
-            type: "GET",
-            cache: false,
-            success: function (result, textStatus) {
-                $("#tipMsg").text(result.msg);
-                if (!result.sc) {
-                    $("#loadMsg").text("");
-                    return;
-                }
+    $.ajax({
+      url: latkeConfig.servePath + "/console/export/sql",
+      type: "GET",
+      cache: false,
+      success: function (result, textStatus) {
+        // AJAX 下载文件的话这里会发两次请求，用 sc 来判断是否是文件，如果没有 sc 说明文件可以下载（实际上就是 result）
+        if (!result.sc) {
+          // 再发一次请求进行正式下载
+          window.location = latkeConfig.servePath + "/console/export/sql";
+        } else {
+          $("#tipMsg").text(result.msg);
+        }
+      }
+    });
+  },
+  /*
+ * @description 导出数据为 JSON 文件
+ */
+  exportJSON: function () {
+    $("#tipMsg").text("");
 
-                var unusedTags = result.unusedTags;
-                if (0 === unusedTags.length) {
-                    return;
-                }
-            }
-        });
-    },
-    /*
-     * @description 跟新回复提醒邮件模版
-     */
-    update: function () {
-        $("#loadMsg").text(Label.loadingLabel);
-        $("#tipMsg").text("");
+    $.ajax({
+      url: latkeConfig.servePath + "/console/export/json",
+      type: "GET",
+      cache: false,
+      success: function (result, textStatus) {
+        // AJAX 下载文件的话这里会发两次请求，用 sc 来判断是否是文件，如果没有 sc 说明文件可以下载（实际上就是 result）
+        if (!result.sc) {
+          // 再发一次请求进行正式下载
+          window.location = latkeConfig.servePath + "/console/export/json";
+        } else {
+          $("#tipMsg").text(result.msg);
+        }
+      }
+    });
+  },
+  /*
+  * @description 导出数据为 Hexo Markdown 文件
+  */
+  exportHexo: function () {
+    $("#tipMsg").text("");
 
-        var requestJSONObject = {
-            "replyNotificationTemplate": {
-                "subject": $("#replayEmailTemplateTitle").val(),
-                "body": $("#replayEmailTemplateBody").val()
-            }
-        };
+    $.ajax({
+      url: latkeConfig.servePath + "/console/export/hexo",
+      type: "GET",
+      cache: false,
+      success: function (result, textStatus) {
+        // AJAX 下载文件的话这里会发两次请求，用 sc 来判断是否是文件，如果没有 sc 说明文件可以下载（实际上就是 result）
+        if (!result.sc) {
+          // 再发一次请求进行正式下载
+          window.location = latkeConfig.servePath + "/console/export/hexo";
+        } else {
+          $("#tipMsg").text(result.msg);
+        }
+      }
+    });
+  },
+  /*
+   * 获取未使用的标签。
+   * XXX: Not used this function yet.
+   */
+  getUnusedTags: function () {
+    $.ajax({
+      url: latkeConfig.servePath + "/console/tag/unused",
+      type: "GET",
+      cache: false,
+      success: function (result, textStatus) {
+        $("#tipMsg").text(result.msg);
+        if (!result.sc) {
+          $("#loadMsg").text("");
+          return;
+        }
 
-        $.ajax({
-            url: latkeConfig.servePath + "/console/reply/notification/template",
-            type: "PUT",
-            cache: false,
-            data: JSON.stringify(requestJSONObject),
-            success: function (result, textStatus) {
-                $("#tipMsg").text(result.msg);
-                $("#loadMsg").text("");
-            }
-        });
-    }
+        var unusedTags = result.unusedTags;
+        if (0 === unusedTags.length) {
+          return;
+        }
+      }
+    });
+  },
+  /*
+   * @description 跟新回复提醒邮件模版
+   */
+  update: function () {
+    $("#loadMsg").text(Label.loadingLabel);
+    $("#tipMsg").text("");
+
+    var requestJSONObject = {
+      "replyNotificationTemplate": {
+        "subject": $("#replayEmailTemplateTitle").val(),
+        "body": $("#replayEmailTemplateBody").val()
+      }
+    };
+
+    $.ajax({
+      url: latkeConfig.servePath + "/console/reply/notification/template",
+      type: "PUT",
+      cache: false,
+      data: JSON.stringify(requestJSONObject),
+      success: function (result, textStatus) {
+        $("#tipMsg").text(result.msg);
+        $("#loadMsg").text("");
+      }
+    });
+  }
 };
 
 /*
  * 注册到 admin 进行管理 
  */
 admin.register.others = {
-    "obj": admin.others,
-    "init": admin.others.init,
-    "refresh": function () {
-        admin.clearTip();
-    }
+  "obj": admin.others,
+  "init": admin.others.init,
+  "refresh": function () {
+    admin.clearTip();
+  }
 };
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2488,7 +2771,7 @@ admin.register.others = {
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.1.4, Feb 23, 2013
+ * @version 1.1.1.4, Apr 9, 2017
  */
 
 /* link-list 相关操作 */
@@ -2500,8 +2783,7 @@ admin.linkList = {
         currentPage: 1
     },
     id: "",
-    
-    /* 
+    /*
      * 初始化 table, pagination
      */
     init: function (page) {
@@ -2531,7 +2813,7 @@ admin.linkList = {
         
         $("#updateLink").dialog({
             width: 700,
-            height: 180,
+            height: 210,
             "modal": true,
             "hideFooter": true
         });
@@ -2573,17 +2855,17 @@ admin.linkList = {
                             linkData[i].linkOrder = "";
                         } else {
                             linkData[i].linkOrder = '<div class="table-center" style="width:14px">\
-                                <span onclick="admin.linkList.changeOrder(' + links[i].oId + ', ' + i + ', \'down\');" class="table-downIcon"></span>\
+                                <span onclick="admin.linkList.changeOrder(' + links[i].oId + ', ' + i + ', \'down\');" class="icon-move-down"></span>\
                             </div>';
                         }
                     } else if (i === links.length - 1) {
                         linkData[i].linkOrder = '<div class="table-center" style="width:14px">\
-                                <span onclick="admin.linkList.changeOrder(' + links[i].oId + ', ' + i + ', \'up\');" class="table-upIcon"></span>\
+                                <span onclick="admin.linkList.changeOrder(' + links[i].oId + ', ' + i + ', \'up\');" class="icon-move-up"></span>\
                             </div>';
                     } else {
                         linkData[i].linkOrder = '<div class="table-center" style="width:38px">\
-                                <span onclick="admin.linkList.changeOrder(' + links[i].oId + ', ' + i + ', \'up\');" class="table-upIcon"></span>\
-                                <span onclick="admin.linkList.changeOrder(' + links[i].oId + ', ' + i + ', \'down\');" class="table-downIcon"></span>\
+                                <span onclick="admin.linkList.changeOrder(' + links[i].oId + ', ' + i + ', \'up\');" class="icon-move-up"></span>\
+                                <span onclick="admin.linkList.changeOrder(' + links[i].oId + ', ' + i + ', \'down\');" class="icon-move-down"></span>\
                             </div>';
                     }
                     
@@ -2819,7 +3101,7 @@ admin.register["link-list"] =  {
     "init": admin.linkList.init,
     "refresh": admin.linkList.getList
 }/*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2838,7 +3120,7 @@ admin.register["link-list"] =  {
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.2.1.9, Nov 20, 2015
+ * @version 1.2.1.10, Nov 15, 2016
  */
 
 /* preference 相关操作 */
@@ -3098,8 +3380,11 @@ admin.preference = {
             cache: false,
             data: JSON.stringify(requestJSONObject),
             success: function (result, textStatus) {
+                if (result.sc) {
+                    window.location.reload();
+                }
+                
                 $("#tipMsg").text(result.msg);
-
                 $("#loadMsg").text("");
             }
         });
@@ -3117,7 +3402,7 @@ admin.register["preference"] = {
     }
 };
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3289,11 +3574,11 @@ admin.register["plugin-list"] = {
     "obj": admin.pluginList,
     "init": admin.pluginList.init,
     "refresh": function() {
-        admin.claerTip();
+        $("#loadMsg").text("");
     }
 };
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3353,7 +3638,7 @@ admin.userList = {
 
         $("#userUpdate").dialog({
             width: 700,
-            height: 250,
+            height: 300,
             "modal": true,
             "hideFooter": true
         });
@@ -3654,7 +3939,374 @@ admin.register["user-list"] = {
     "init": admin.userList.init,
     "refresh": admin.userList.getList
 }/*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/**
+ * category list for admin
+ *
+ * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
+ * @author <a href="http://88250.b3log.org">Liang Ding</a>
+ * @version 1.1.1.1, Apr 10, 2017
+ * @since 2.0.0
+ */
+
+/* category-list 相关操作 */
+admin.categoryList = {
+    tablePagination: new TablePaginate("category"),
+    pageInfo: {
+        currentCount: 1,
+        pageCount: 1,
+        currentPage: 1
+    },
+    /* 
+     * 初始化 table, pagination
+     */
+    init: function(page) {
+        this.tablePagination.buildTable([{
+                text: "",
+                index: "linkOrder",
+                width: 60
+            }, {
+                style: "padding-left: 12px;",
+                text: Label.titleLabel,
+                index: "categoryTitle",
+                width: 230
+            }, {
+                style: "padding-left: 12px;",
+                text: 'URI',
+                index: "categoryURI",
+                width: 230
+            }, {
+                style: "padding-left: 12px;",
+                text: Label.descriptionLabel,
+                index: "categoryDesc",
+                minWidth: 180
+            }]);
+
+        this.tablePagination.initPagination();
+        this.getList(page);
+
+        $("#categoryUpdate").dialog({
+            width: 700,
+            height: 260,
+            "modal": true,
+            "hideFooter": true
+        });
+
+        // For tag auto-completion
+        $.ajax({// Gets all tags
+            url: latkeConfig.servePath + "/console/tags",
+            type: "GET",
+            cache: false,
+            success: function (result, textStatus) {
+                $("#tipMsg").text(result.msg);
+                if (!result.sc) {
+                    $("#loadMsg").text("");
+                    return;
+                }
+
+                if (0 >= result.tags.length) {
+                    return;
+                }
+
+                var tags = [];
+                for (var i = 0; i < result.tags.length; i++) {
+                    tags.push(result.tags[i].tagTitle);
+                }
+
+                $("#categoryTags").completed({
+                    height: 160,
+                    buttonText: Label.selectLabel,
+                    data: tags
+                }).width($("#categoryTags").parent().width() - 68);
+
+                $("#loadMsg").text("");
+            }
+        });
+    },
+    /* 
+     * 根据当前页码获取列表
+     * @pagNum 当前页码
+     */
+    getList: function(pageNum) {
+        $("#loadMsg").text(Label.loadingLabel);
+        $("#tipMsg").text("");
+        this.pageInfo.currentPage = pageNum;
+        var that = this;
+
+        $.ajax({
+            url: latkeConfig.servePath + "/console/categories/" + pageNum + "/" + Label.PAGE_SIZE + "/" + Label.WINDOW_SIZE,
+            type: "GET",
+            cache: false,
+            success: function(result, textStatus) {
+                $("#tipMsg").text(result.msg);
+                if (!result.sc) {
+                    $("#loadMsg").text("");
+                    return;
+                }
+
+                var categories = result.categories;
+                var categoryData = [];
+                admin.categoryList.pageInfo.currentCount = categories.length;
+                admin.categoryList.pageInfo.pageCount = result.pagination.paginationPageCount === 0 ? 1 : result.pagination.paginationPageCount;
+
+                for (var i = 0; i < categories.length; i++) {
+                    categoryData[i] = {};
+                    if (i === 0) {
+                        if (categories.length === 1) {
+                            categoryData[i].linkOrder = "";
+                        } else {
+                            categoryData[i].linkOrder = '<div class="table-center" style="width:14px">\
+                                <span onclick="admin.categoryList.changeOrder(' + categories[i].oId + ', ' + i + ', \'down\');" class="icon-move-down"></span>\
+                            </div>';
+                        }
+                    } else if (i === categories.length - 1) {
+                        categoryData[i].linkOrder = '<div class="table-center" style="width:14px">\
+                                <span onclick="admin.categoryList.changeOrder(' + categories[i].oId + ', ' + i + ', \'up\');" class="icon-move-up"></span>\
+                            </div>';
+                    } else {
+                        categoryData[i].linkOrder = '<div class="table-center" style="width:38px">\
+                                <span onclick="admin.categoryList.changeOrder(' + categories[i].oId + ', ' + i + ', \'up\');" class="icon-move-up"></span>\
+                                <span onclick="admin.categoryList.changeOrder(' + categories[i].oId + ', ' + i + ', \'down\');" class="icon-move-down"></span>\
+                            </div>';
+                    }
+
+                    categoryData[i].categoryTitle = categories[i].categoryTitle;
+                    categoryData[i].categoryURI = categories[i].categoryURI;
+                    categoryData[i].categoryDesc = categories[i].categoryDescription;
+
+                    categoryData[i].expendRow = "<a href='javascript:void(0)' onclick=\"admin.categoryList.get('" +
+                            categories[i].oId + "')\">" + Label.updateLabel + "</a>\
+                            <a href='javascript:void(0)' onclick=\"admin.categoryList.del('" + categories[i].oId + "', '" +
+                            categories[i].categoryTitle + "')\">" + Label.removeLabel + "</a> ";
+
+                }
+                that.tablePagination.updateTablePagination(categoryData, pageNum, result.pagination);
+                $("#loadMsg").text("");
+            }
+        });
+    },
+    /*
+     * 添加分类
+     */
+    add: function() {
+        if (this.validate()) {
+            $("#loadMsg").text(Label.loadingLabel);
+            $("#tipMsg").text("");
+
+            var requestJSONObject = {
+                "categoryTitle": $("#categoryName").val(),
+                "categoryTags": $("#categoryTags").val(),
+                "categoryURI": $("#categoryURI").val(),
+                "categoryDescription": $("#categoryDesc").val()
+            };
+
+            $.ajax({
+                url: latkeConfig.servePath + "/console/category/",
+                type: "POST",
+                cache: false,
+                data: JSON.stringify(requestJSONObject),
+                success: function(result, textStatus) {
+                    $("#tipMsg").text(result.msg);
+                    if (!result.sc) {
+                        $("#loadMsg").text("");
+                        return;
+                    }
+
+                    $("#categoryName").val("");
+                    $("#categoryTags").val("");
+                    $("#categoryURI").val("");
+                    $("#categoryDesc").val("");
+                    if (admin.categoryList.pageInfo.currentCount === Label.PAGE_SIZE &&
+                            admin.categoryList.pageInfo.currentPage === admin.categoryList.pageInfo.pageCount) {
+                        admin.categoryList.pageInfo.pageCount++;
+                    }
+                    var hashList = window.location.hash.split("/");
+                    if (admin.categoryList.pageInfo.pageCount !== parseInt(hashList[hashList.length - 1])) {
+                        admin.setHashByPage(admin.categoryList.pageInfo.pageCount);
+                    }
+
+                    admin.categoryList.getList(admin.categoryList.pageInfo.pageCount);
+
+                    $("#loadMsg").text("");
+                }
+            });
+        }
+    },
+    /*
+     * 获取单个分类
+     * @id 用户 id
+     */
+    get: function(id) {
+        $("#loadMsg").text(Label.loadingLabel);
+        $("#tipMsg").text("");
+        $("#categoryUpdate").dialog("open");
+
+        $.ajax({
+            url: latkeConfig.servePath + "/console/category/" + id,
+            type: "GET",
+            cache: false,
+            success: function(result, textStatus) {
+                $("#tipMsg").text(result.msg);
+                if (!result.sc) {
+                    $("#loadMsg").text("");
+                    return;
+                }
+
+                $("#categoryNameUpdate").val(result.categoryTitle).data("oId", id);
+                $("#categoryURIUpdate").val(result.categoryURI);
+                $("#categoryDescUpdate").val(result.categoryDescription);
+                $("#categoryTagsUpdate").val(result.categoryTags);
+
+                $("#loadMsg").text("");
+            }
+        });
+    },
+    /*
+     * 更新分类
+     */
+    update: function() {
+        if (this.validate("Update")) {
+            $("#loadMsg").text(Label.loadingLabel);
+            $("#tipMsg").text("");
+
+            var requestJSONObject = {
+                "categoryTitle": $("#categoryNameUpdate").val(),
+                "oId": $("#categoryNameUpdate").data("oId"),
+                "categoryTags": $("#categoryTagsUpdate").val(),
+                "categoryURI": $("#categoryURIUpdate").val(),
+                "categoryDescription": $("#categoryDescUpdate").val()
+            };
+
+            $.ajax({
+                url: latkeConfig.servePath + "/console/category/",
+                type: "PUT",
+                cache: false,
+                data: JSON.stringify(requestJSONObject),
+                success: function(result, textStatus) {
+                    $("#categoryUpdate").dialog("close");
+                    $("#tipMsg").text(result.msg);
+                    if (!result.sc) {
+                        $("#loadMsg").text("");
+                        return;
+                    }
+
+                    admin.categoryList.getList(admin.categoryList.pageInfo.currentPage);
+
+                    $("#loadMsg").text("");
+                }
+            });
+        }
+    },
+    /*
+     * 删除分类
+     * @id 分类 id
+     * @categoryName 分类名称
+     */
+    del: function(id, categoryName) {
+        var isDelete = confirm(Label.confirmRemoveLabel + Label.categoryLabel + '"' + categoryName + '"?');
+        if (isDelete) {
+            $("#loadMsg").text(Label.loadingLabel);
+            $("#tipMsg").text("");
+
+            $.ajax({
+                url: latkeConfig.servePath + "/console/category/" + id,
+                type: "DELETE",
+                cache: false,
+                success: function(result, textStatus) {
+                    $("#tipMsg").text(result.msg);
+                    if (!result.sc) {
+                        $("#loadMsg").text("");
+                        return;
+                    }
+
+                    var pageNum = admin.categoryList.pageInfo.currentPage;
+                    if (admin.categoryList.pageInfo.currentCount === 1 && admin.categoryList.pageInfo.pageCount !== 1 &&
+                            admin.categoryList.pageInfo.currentPage === admin.categoryList.pageInfo.pageCount) {
+                        admin.categoryList.pageInfo.pageCount--;
+                        pageNum = admin.categoryList.pageInfo.pageCount;
+                    }
+                    var hashList = window.location.hash.split("/");
+                    if (pageNum !== parseInt(hashList[hashList.length - 1])) {
+                        admin.setHashByPage(pageNum);
+                    }
+                    admin.categoryList.getList(pageNum);
+
+                    $("#loadMsg").text("");
+                }
+            });
+        }
+    },
+    /*
+     * 验证字段
+     * @status 更新或者添加时进行验证
+     */
+    validate: function(status) {
+        if (!status) {
+            status = "";
+        }
+        var categoryName = $("#categoryName" + status).val().replace(/(^\s*)|(\s*$)/g, "");
+        if (2 > categoryName.length || categoryName.length > 32) {
+            $("#tipMsg").text(Label.categoryTooLongLabel);
+            $("#categoryName" + status).focus();
+        } else if ($.trim($("#categoryTags" + status).val()) === "") {
+            $("#tipMsg").text(Label.tagsEmptyLabel);
+            $("#categoryTags" + status).focus();
+        } else {
+            return true;
+        }
+        return false;
+    },
+    /*
+     * 调换顺序
+     */
+    changeOrder: function (id, order, status) {
+        $("#loadMsg").text(Label.loadingLabel);
+        $("#tipMsg").text("");
+
+        var requestJSONObject = {
+            "oId": id.toString(),
+            "direction": status
+        };
+
+        $.ajax({
+            url: latkeConfig.servePath + "/console/category/order/",
+            type: "PUT",
+            cache: false,
+            data: JSON.stringify(requestJSONObject),
+            success: function(result, textStatus){
+                $("#tipMsg").text(result.msg);
+
+                // Refershes the link list
+                admin.categoryList.getList(admin.categoryList.pageInfo.currentPage);
+
+                $("#loadMsg").text("");
+            }
+        });
+    }
+};
+
+/*
+ * 注册到 admin 进行管理 
+ */
+admin.register["category-list"] = {
+    "obj": admin.categoryList,
+    "init": admin.categoryList.init,
+    "refresh": admin.categoryList.getList
+}/*
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3804,7 +4456,7 @@ admin.register["comment-list"] =  {
     "init": admin.commentList.init,
     "refresh": admin.commentList.getList
 }/*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3938,7 +4590,7 @@ admin.plugin = {
     }
 };
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3976,7 +4628,7 @@ admin.register.main =  {
     }
 };
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3995,14 +4647,14 @@ admin.register.main =  {
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.4, May 28, 2013
+ * @version 1.0.1.4, Feb 18, 2017
  */
 
 /* about 相关操作 */
 admin.about = {
     init: function() {
         $.ajax({
-            url: "http://rhythm.b3log.org/version/solo/latest/" + Label.version,
+            url: "https://rhythm.b3log.org/version/solo/latest/" + Label.version,
             type: "GET",
             cache: false,
             dataType: "jsonp",

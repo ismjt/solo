@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,9 @@
  */
 package org.b3log.solo.service;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.lang.StringUtils;
 import org.b3log.latke.Keys;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.model.Pagination;
@@ -44,12 +40,19 @@ import org.b3log.solo.util.Markdowns;
 import org.b3log.solo.util.Thumbnails;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.jsoup.Jsoup;
+import org.jsoup.safety.Whitelist;
+
+import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 
 /**
  * Comment query service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.3.0.8, Jun 28, 2016
+ * @version 1.3.2.0, Aug 31, 2017
  * @since 0.3.5
  */
 @Service
@@ -58,7 +61,7 @@ public class CommentQueryService {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(CommentQueryService.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(CommentQueryService.class);
 
     /**
      * User service.
@@ -88,7 +91,7 @@ public class CommentQueryService {
      * Can the current user access a comment specified by the given comment id?
      *
      * @param commentId the given comment id
-     * @param request the specified request
+     * @param request   the specified request
      * @return {@code true} if the current user can access the comment, {@code false} otherwise
      * @throws Exception exception
      */
@@ -103,7 +106,6 @@ public class CommentQueryService {
 
         // Here, you are not admin
         final JSONObject comment = commentRepository.get(commentId);
-
         if (null == comment) {
             return false;
         }
@@ -116,7 +118,6 @@ public class CommentQueryService {
         }
 
         final JSONObject article = articleRepository.get(onId);
-
         if (null == article) {
             return false;
         }
@@ -129,15 +130,12 @@ public class CommentQueryService {
     /**
      * Gets comments with the specified request json object, request and response.
      *
-     * @param requestJSONObject the specified request json object, for example,      <pre>
-     * {
-     *     "paginationCurrentPageNum": 1,
-     *     "paginationPageSize": 20,
-     *     "paginationWindowSize": 10
-     * }, see {@link Pagination} for more details
-     * </pre>
-     *
-     * @return for example,      <pre>
+     * @param requestJSONObject the specified request json object, for example,
+     *                          "paginationCurrentPageNum": 1,
+     *                          "paginationPageSize": 20,
+     *                          "paginationWindowSize": 10
+     * @return for example,
+     * <pre>
      * {
      *     "comments": [{
      *         "oId": "",
@@ -153,7 +151,6 @@ public class CommentQueryService {
      *     "sc": "GET_COMMENTS_SUCC"
      * }
      * </pre>
-     *
      * @throws ServiceException service exception
      * @see Pagination
      */
@@ -195,6 +192,7 @@ public class CommentQueryService {
                 String commentContent = comment.optString(Comment.COMMENT_CONTENT);
                 commentContent = Emotions.convert(commentContent);
                 commentContent = Markdowns.toHTML(commentContent);
+                commentContent = Jsoup.clean(commentContent, Whitelist.relaxed());
                 comment.put(Comment.COMMENT_CONTENT, commentContent);
 
                 comment.put(Comment.COMMENT_TIME, ((Date) comment.get(Comment.COMMENT_DATE)).getTime());
@@ -234,6 +232,7 @@ public class CommentQueryService {
 
             for (final JSONObject comment : comments) {
                 comment.put(Comment.COMMENT_TIME, ((Date) comment.get(Comment.COMMENT_DATE)).getTime());
+                comment.put("commentDate2", comment.get(Comment.COMMENT_DATE)); // 1.9.0 向后兼容
                 comment.put(Comment.COMMENT_NAME, comment.getString(Comment.COMMENT_NAME));
                 String url = comment.getString(Comment.COMMENT_URL);
                 if (StringUtils.contains(url, "<")) { // legacy issue https://github.com/b3log/solo/issues/12091
@@ -244,7 +243,10 @@ public class CommentQueryService {
 
                 final String email = comment.optString(Comment.COMMENT_EMAIL);
 
-                comment.put(Comment.COMMENT_THUMBNAIL_URL, Thumbnails.getGravatarURL(email, "128"));
+                final String thumbnailURL = comment.optString(Comment.COMMENT_THUMBNAIL_URL);
+                if (Strings.isEmptyOrNull(thumbnailURL)) {
+                    comment.put(Comment.COMMENT_THUMBNAIL_URL, Thumbnails.getGravatarURL(email, "128"));
+                }
 
                 if (!Strings.isEmptyOrNull(comment.optString(Comment.COMMENT_ORIGINAL_COMMENT_ID))) {
                     // This comment is a reply
@@ -254,6 +256,7 @@ public class CommentQueryService {
                 String commentContent = comment.optString(Comment.COMMENT_CONTENT);
                 commentContent = Emotions.convert(commentContent);
                 commentContent = Markdowns.toHTML(commentContent);
+                commentContent = Jsoup.clean(commentContent, Whitelist.relaxed());
                 comment.put(Comment.COMMENT_CONTENT, commentContent);
 
                 ret.add(comment);

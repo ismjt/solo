@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,8 @@
  */
 package org.b3log.solo.processor;
 
-import java.io.IOException;
-import java.util.Map;
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.lang.StringUtils;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.service.LangPropsService;
@@ -37,6 +33,11 @@ import org.b3log.solo.processor.util.Filler;
 import org.b3log.solo.service.PreferenceQueryService;
 import org.json.JSONObject;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Map;
+
 /**
  * Error processor.
  *
@@ -50,7 +51,12 @@ public class ErrorProcessor {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(ArticleProcessor.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ArticleProcessor.class);
+
+    /**
+     * User service.
+     */
+    private static UserService userService = UserServiceFactory.getUserService();
 
     /**
      * Filler.
@@ -71,15 +77,10 @@ public class ErrorProcessor {
     private LangPropsService langPropsService;
 
     /**
-     * User service.
-     */
-    private static UserService userService = UserServiceFactory.getUserService();
-
-    /**
      * Shows the user template page.
      *
-     * @param context the specified context
-     * @param request the specified HTTP servlet request
+     * @param context  the specified context
+     * @param request  the specified HTTP servlet request
      * @param response the specified HTTP servlet response
      * @throws IOException io exception
      */
@@ -90,7 +91,7 @@ public class ErrorProcessor {
         String templateName = StringUtils.substringAfterLast(requestURI, "/");
 
         templateName = StringUtils.substringBefore(templateName, ".") + ".ftl";
-        LOGGER.log(Level.DEBUG, "Shows error page[requestURI={0}, templateName={1}]", new Object[]{requestURI, templateName});
+        LOGGER.log(Level.DEBUG, "Shows error page[requestURI={0}, templateName={1}]", requestURI, templateName);
 
         final ConsoleRenderer renderer = new ConsoleRenderer();
 

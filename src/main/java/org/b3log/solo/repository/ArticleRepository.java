@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,18 +15,17 @@
  */
 package org.b3log.solo.repository;
 
-
-import java.util.List;
 import org.b3log.latke.repository.Repository;
 import org.b3log.latke.repository.RepositoryException;
 import org.json.JSONObject;
 
+import java.util.List;
 
 /**
  * Article repository.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.1.9, Jun 13, 2015
+ * @version 1.1.1.10, Jul 16, 2017
  * @since 0.3.1
  */
 public interface ArticleRepository extends Repository {
@@ -34,9 +33,9 @@ public interface ArticleRepository extends Repository {
     /**
      * Gets published articles by the specified author email, current page number and page size.
      *
-     * @param authorEmail the specified author email
+     * @param authorEmail    the specified author email
      * @param currentPageNum the specified current page number, MUST greater then {@code 0}
-     * @param pageSize the specified page size(count of a page contains objects), MUST greater then {@code 0}
+     * @param pageSize       the specified page size(count of a page contains objects), MUST greater then {@code 0}
      * @return for example
      * <pre>
      * {
@@ -57,7 +56,7 @@ public interface ArticleRepository extends Repository {
      *
      * @param permalink the specified permalink
      * @return an article, returns {@code null} if not found
-     * @throws RepositoryException repository exception 
+     * @throws RepositoryException repository exception
      */
     JSONObject getByPermalink(final String permalink) throws RepositoryException;
 
@@ -66,7 +65,7 @@ public interface ArticleRepository extends Repository {
      *
      * @param fetchSize the specified fetch size
      * @return a list of articles recently, returns an empty list if not found
-     * @throws RepositoryException repository exception 
+     * @throws RepositoryException repository exception
      */
     List<JSONObject> getRecentArticles(final int fetchSize) throws RepositoryException;
 
@@ -75,7 +74,7 @@ public interface ArticleRepository extends Repository {
      *
      * @param num the specified number
      * @return a list of most comment articles, returns an empty list if not found
-     * @throws RepositoryException repository exception 
+     * @throws RepositoryException repository exception
      */
     List<JSONObject> getMostCommentArticles(final int num) throws RepositoryException;
 
@@ -84,7 +83,7 @@ public interface ArticleRepository extends Repository {
      *
      * @param num the specified number
      * @return a list of most view count articles, returns an empty list if not found
-     * @throws RepositoryException repository exception 
+     * @throws RepositoryException repository exception
      */
     List<JSONObject> getMostViewCountArticles(final int num) throws RepositoryException;
 
@@ -124,7 +123,7 @@ public interface ArticleRepository extends Repository {
 
     /**
      * Determines an article specified by the given article id is published.
-     * 
+     *
      * @param articleId the given article id
      * @return {@code true} if it is published, {@code false} otherwise
      * @throws RepositoryException repository exception

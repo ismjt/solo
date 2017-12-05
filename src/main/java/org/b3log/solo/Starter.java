@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,18 +15,8 @@
  */
 package org.b3log.solo;
 
-import java.awt.Desktop;
-import java.io.File;
-import java.net.URI;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.*;
 import org.b3log.latke.Latkes;
-import org.b3log.latke.RuntimeMode;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.util.Strings;
@@ -35,16 +25,19 @@ import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Slf4jLog;
 import org.eclipse.jetty.webapp.WebAppContext;
 
+import java.awt.*;
+import java.io.File;
+import java.net.URI;
+
 /**
  * Solo with embedded Jetty, <a href="https://github.com/b3log/solo/issues/12037">standalone mode</a>.
- *
  * <ul>
  * <li>Windows: java -cp WEB-INF/lib/*;WEB-INF/classes org.b3log.solo.Starter</li>
  * <li>Unix-like: java -cp WEB-INF/lib/*:WEB-INF/classes org.b3log.solo.Starter</li>
  * </ul>
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.0.7, Dec 23, 2015
+ * @version 1.1.0.10, Nov 9, 2017
  * @since 1.2.0
  */
 public final class Starter {
@@ -55,6 +48,12 @@ public final class Starter {
         } catch (final Exception e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Private constructor.
+     */
+    private Starter() {
     }
 
     /**
@@ -100,6 +99,7 @@ public final class Starter {
         options.addOption(runtimeModeOpt);
 
         options.addOption("h", "help", false, "print help for the command");
+        options.addOption("no", "not_open", false, "not auto open in the browser");
 
         final HelpFormatter helpFormatter = new HelpFormatter();
         final CommandLineParser commandLineParser = new DefaultParser();
@@ -143,11 +143,11 @@ public final class Starter {
         Latkes.setStaticServerPort(staticServerPort);
         String runtimeMode = commandLine.getOptionValue("runtime_mode");
         if (null != runtimeMode) {
-            Latkes.setRuntimeMode(RuntimeMode.valueOf(runtimeMode));
+            Latkes.setRuntimeMode(Latkes.RuntimeMode.valueOf(runtimeMode));
         }
-        Latkes.setScanPath("org.b3log.solo"); // For Latke IoC 
+        Latkes.setScanPath("org.b3log.solo"); // For Latke IoC
 
-        logger.info("Standalone mode, see [https://github.com/b3log/solo/wiki/standalone_mode] for more details.");
+        logger.info("Standalone mode, see [https://github.com/b3log/solo/issues/12037] for more details.");
         Latkes.initRuntimeEnv();
 
         String webappDirLocation = "src/main/webapp/"; // POM structure in dev env
@@ -180,17 +180,23 @@ public final class Starter {
         final String contextPath = Latkes.getContextPath();
 
         try {
-            Desktop.getDesktop().browse(new URI(serverScheme + "://" + serverHost + ":" + serverPort + contextPath));
+            if (!commandLine.hasOption("no")) {
+                Desktop.getDesktop().browse(new URI(serverScheme + "://" + serverHost + ":" + serverPort + contextPath));
+            }
         } catch (final Throwable e) {
             // Ignored
         }
 
-        server.join();
-    }
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                server.stop();
+            } catch (final Exception e) {
+                logger.log(Level.ERROR, "Server stop failed", e);
 
-    /**
-     * Private constructor.
-     */
-    private Starter() {
+                System.exit(-1);
+            }
+        }));
+
+        server.join();
     }
 }

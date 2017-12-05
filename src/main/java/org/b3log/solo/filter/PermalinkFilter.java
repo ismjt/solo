@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,6 @@
 package org.b3log.solo.filter;
 
 
-import java.io.IOException;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.lang.StringUtils;
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
@@ -48,6 +39,11 @@ import org.b3log.solo.service.ArticleQueryService;
 import org.b3log.solo.service.PermalinkQueryService;
 import org.json.JSONObject;
 
+import javax.servlet.*;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
 
 /**
  * Article/Page permalink filter.
@@ -64,7 +60,7 @@ public final class PermalinkFilter implements Filter {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(PermalinkFilter.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(PermalinkFilter.class);
 
     @Override
     public void init(final FilterConfig filterConfig) throws ServletException {}

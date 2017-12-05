@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,17 +15,13 @@
  */
 package org.b3log.solo.service;
 
-import java.io.IOException;
-import java.net.URL;
-import java.util.Date;
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.DateFormatUtils;
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
 import org.b3log.latke.event.Event;
 import org.b3log.latke.event.EventManager;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.mail.MailService;
@@ -35,7 +31,10 @@ import org.b3log.latke.repository.Transaction;
 import org.b3log.latke.service.LangPropsService;
 import org.b3log.latke.service.ServiceException;
 import org.b3log.latke.service.annotation.Service;
-import org.b3log.latke.urlfetch.*;
+import org.b3log.latke.urlfetch.HTTPRequest;
+import org.b3log.latke.urlfetch.HTTPResponse;
+import org.b3log.latke.urlfetch.URLFetchService;
+import org.b3log.latke.urlfetch.URLFetchServiceFactory;
 import org.b3log.latke.util.Ids;
 import org.b3log.latke.util.Strings;
 import org.b3log.solo.event.EventTypes;
@@ -44,29 +43,73 @@ import org.b3log.solo.repository.ArticleRepository;
 import org.b3log.solo.repository.CommentRepository;
 import org.b3log.solo.repository.PageRepository;
 import org.b3log.solo.repository.UserRepository;
-import org.b3log.solo.util.Comments;
-import org.b3log.solo.util.Emotions;
-import org.b3log.solo.util.Markdowns;
-import org.b3log.solo.util.Thumbnails;
+import org.b3log.solo.util.*;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Whitelist;
 
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.net.URL;
+import java.util.Date;
+
 /**
  * Comment management service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.3.2.8, May 10, 2016
+ * @version 1.3.3.0, Aug 31, 2017
  * @since 0.3.5
  */
 @Service
 public class CommentMgmtService {
 
     /**
+     * Comment mail HTML body.
+     */
+    public static final String COMMENT_MAIL_HTML_BODY = "<p>{articleOrPage} [<a href=\"" + "{articleOrPageURL}\">" + "{title}</a>]"
+            + " received a new comment:</p>" + "{commenter}: <span><a href=\"{commentSharpURL}\">" + "{commentContent}</a></span>";
+
+    /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(CommentMgmtService.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(CommentMgmtService.class);
+
+    /**
+     * Default user thumbnail.
+     */
+    private static final String DEFAULT_USER_THUMBNAIL = "default-user-thumbnail.png";
+
+    /**
+     * Minimum length of comment name.
+     */
+    private static final int MIN_COMMENT_NAME_LENGTH = 2;
+
+    /**
+     * Maximum length of comment name.
+     */
+    private static final int MAX_COMMENT_NAME_LENGTH = 20;
+
+    /**
+     * Minimum length of comment content.
+     */
+    private static final int MIN_COMMENT_CONTENT_LENGTH = 2;
+
+    /**
+     * Maximum length of comment content.
+     */
+    private static final int MAX_COMMENT_CONTENT_LENGTH = 500;
+
+    /**
+     * Event manager.
+     */
+    @Inject
+    private static EventManager eventManager;
+
+    /**
+     * URL fetch service.
+     */
+    private static URLFetchService urlFetchService = URLFetchServiceFactory.getURLFetchService();
 
     /**
      * Article management service.
@@ -111,46 +154,10 @@ public class CommentMgmtService {
     private PreferenceQueryService preferenceQueryService;
 
     /**
-     * Event manager.
-     */
-    @Inject
-    private static EventManager eventManager;
-
-    /**
-     * Default user thumbnail.
-     */
-    private static final String DEFAULT_USER_THUMBNAIL = "default-user-thumbnail.png";
-
-    /**
-     * URL fetch service.
-     */
-    private static URLFetchService urlFetchService = URLFetchServiceFactory.getURLFetchService();
-
-    /**
      * Language service.
      */
     @Inject
     private LangPropsService langPropsService;
-
-    /**
-     * Minimum length of comment name.
-     */
-    private static final int MIN_COMMENT_NAME_LENGTH = 2;
-
-    /**
-     * Maximum length of comment name.
-     */
-    private static final int MAX_COMMENT_NAME_LENGTH = 20;
-
-    /**
-     * Minimum length of comment content.
-     */
-    private static final int MIN_COMMENT_CONTENT_LENGTH = 2;
-
-    /**
-     * Maximum length of comment content.
-     */
-    private static final int MAX_COMMENT_CONTENT_LENGTH = 500;
 
     /**
      * Mail service.
@@ -158,27 +165,24 @@ public class CommentMgmtService {
     private MailService mailService = MailServiceFactory.getMailService();
 
     /**
-     * Comment mail HTML body.
-     */
-    public static final String COMMENT_MAIL_HTML_BODY = "<p>{articleOrPage} [<a href=\"" + "{articleOrPageURL}\">" + "{title}</a>]"
-            + " received a new comment:</p>" + "{commenter}: <span><a href=\"{commentSharpURL}\">" + "{commentContent}</a></span>";
-
-    /**
      * Sends a notification mail to administrator for notifying the specified article or page received the specified
      * comment and original comment.
      *
-     * @param articleOrPage the specified article or page
-     * @param comment the specified comment
+     * @param articleOrPage   the specified article or page
+     * @param comment         the specified comment
      * @param originalComment original comment, if not exists, set it as {@code null}
-     * @param preference the specified preference
-     * @throws IOException io exception
+     * @param preference      the specified preference
+     * @throws IOException   io exception
      * @throws JSONException json exception
      */
     public void sendNotificationMail(final JSONObject articleOrPage,
-            final JSONObject comment,
-            final JSONObject originalComment,
-            final JSONObject preference)
-            throws IOException, JSONException {
+                                     final JSONObject comment,
+                                     final JSONObject originalComment,
+                                     final JSONObject preference) throws IOException, JSONException {
+        if (!Mails.isConfigured()) {
+            return;
+        }
+
         final String commentEmail = comment.getString(Comment.COMMENT_EMAIL);
         final String commentId = comment.getString(Keys.OBJECT_ID);
         final String commentContent = comment.getString(Comment.COMMENT_CONTENT);
@@ -199,7 +203,6 @@ public class CommentMgmtService {
 
         if (null != originalComment && comment.has(Comment.COMMENT_ORIGINAL_COMMENT_ID)) {
             final String originalEmail = originalComment.getString(Comment.COMMENT_EMAIL);
-
             if (originalEmail.equalsIgnoreCase(adminEmail)) {
                 LOGGER.log(Level.DEBUG, "Do not send comment notification mail to admin while the specified comment[{0}] is an reply",
                         commentId);
@@ -210,7 +213,6 @@ public class CommentMgmtService {
         final String blogTitle = preference.getString(Option.ID_C_BLOG_TITLE);
         boolean isArticle = true;
         String title = articleOrPage.optString(Article.ARTICLE_TITLE);
-
         if (Strings.isEmptyOrNull(title)) {
             title = articleOrPage.getString(Page.PAGE_TITLE);
             isArticle = false;
@@ -218,7 +220,6 @@ public class CommentMgmtService {
 
         final String commentSharpURL = comment.getString(Comment.COMMENT_SHARP_URL);
         final MailService.Message message = new MailService.Message();
-
         message.setFrom(adminEmail);
         message.addRecipient(adminEmail);
         String mailSubject;
@@ -251,29 +252,26 @@ public class CommentMgmtService {
         message.setHtmlBody(mailBody);
 
         LOGGER.log(Level.DEBUG, "Sending a mail[mailSubject={0}, mailBody=[{1}] to admin[email={2}]",
-                new Object[]{mailSubject, mailBody, adminEmail});
+                mailSubject, mailBody, adminEmail);
 
         mailService.send(message);
     }
 
     /**
      * Checks the specified comment adding request.
-     *
      * <p>
      * XSS process (name, content) in this method.
      * </p>
      *
-     * @param requestJSONObject the specified comment adding request, for example,      <pre>
-     * {
-     *     "type": "", // "article"/"page"
-     *     "oId": "",
-     *     "commentName": "",
-     *     "commentEmail": "",
-     *     "commentURL": "",
-     *     "commentContent": "",
-     * }
-     * </pre>
-     *
+     * @param requestJSONObject the specified comment adding request, for example,
+     *                          {
+     *                          "type": "", // "article"/"page"
+     *                          "oId": "",
+     *                          "commentName": "",
+     *                          "commentEmail": "",
+     *                          "commentURL": "",
+     *                          "commentContent": "",
+     *                          }
      * @return check result, for example,      <pre>
      * {
      *     "sc": boolean,
@@ -357,13 +355,7 @@ public class CommentMgmtService {
             commentName = Jsoup.clean(commentName, Whitelist.none());
             requestJSONObject.put(Comment.COMMENT_NAME, commentName);
 
-            // content Markdown & XSS process 
-            commentContent = Markdowns.toHTML(commentContent);
-            commentContent = Jsoup.clean(commentContent, Whitelist.relaxed());
-
-            // Emoji
             commentContent = Emotions.toAliases(commentContent);
-
             requestJSONObject.put(Comment.COMMENT_CONTENT, commentContent);
 
             return ret;
@@ -380,17 +372,15 @@ public class CommentMgmtService {
     /**
      * Adds page comment with the specified request json object.
      *
-     * @param requestJSONObject the specified request json object, for example,      <pre>
-     * {
-     *     "oId": "", // page id
-     *     "commentName": "",
-     *     "commentEmail": "",
-     *     "commentURL": "", // optional
-     *     "commentContent": "",
-     *     "commentOriginalCommentId": "" // optional
-     * }
-     * </pre>
-     *
+     * @param requestJSONObject the specified request json object, for example,
+     *                          {
+     *                          "oId": "", // page id
+     *                          "commentName": "",
+     *                          "commentEmail": "",
+     *                          "commentURL": "", // optional
+     *                          "commentContent": "",
+     *                          "commentOriginalCommentId": "" // optional
+     *                          }
      * @return add result, for example,      <pre>
      * {
      *     "oId": "", // generated comment id
@@ -399,26 +389,34 @@ public class CommentMgmtService {
      *     "commentThumbnailURL": "",
      *     "commentSharpURL": "",
      *     "commentContent": "", // processed XSS HTML
-     *     "commentName": "" // processed XSS
+     *     "commentName": "", // processed XSS
+     *     "commentURL": "", // optional
+     *     "isReply": boolean,
+     *     "page": {},
+     *     "commentOriginalCommentId": "" // optional
+     *     "commentable": boolean,
+     *     "permalink": "" // page.pagePermalink
      * }
      * </pre>
-     *
      * @throws ServiceException service exception
      */
     public JSONObject addPageComment(final JSONObject requestJSONObject) throws ServiceException {
         final JSONObject ret = new JSONObject();
+        ret.put(Common.IS_REPLY, false);
 
         final Transaction transaction = commentRepository.beginTransaction();
 
         try {
             final String pageId = requestJSONObject.getString(Keys.OBJECT_ID);
             final JSONObject page = pageRepository.get(pageId);
+            ret.put(Page.PAGE, page);
             final String commentName = requestJSONObject.getString(Comment.COMMENT_NAME);
             final String commentEmail = requestJSONObject.getString(Comment.COMMENT_EMAIL).trim().toLowerCase();
             final String commentURL = requestJSONObject.optString(Comment.COMMENT_URL);
             final String commentContent = requestJSONObject.getString(Comment.COMMENT_CONTENT);
 
             final String originalCommentId = requestJSONObject.optString(Comment.COMMENT_ORIGINAL_COMMENT_ID);
+            ret.put(Comment.COMMENT_ORIGINAL_COMMENT_ID, originalCommentId);
             // Step 1: Add comment
             final JSONObject comment = new JSONObject();
 
@@ -436,6 +434,11 @@ public class CommentMgmtService {
 
             comment.put(Comment.COMMENT_DATE, date);
             ret.put(Comment.COMMENT_DATE, DateFormatUtils.format(date, "yyyy-MM-dd HH:mm:ss"));
+            ret.put("commentDate2", date);
+
+            ret.put(Common.COMMENTABLE, preference.getBoolean(Option.ID_C_COMMENTABLE) && page.getBoolean(Page.PAGE_COMMENTABLE));
+            ret.put(Common.PERMALINK, page.getString(Page.PAGE_PERMALINK));
+
             if (!Strings.isEmptyOrNull(originalCommentId)) {
                 originalComment = commentRepository.get(originalCommentId);
                 if (null != originalComment) {
@@ -444,6 +447,8 @@ public class CommentMgmtService {
 
                     comment.put(Comment.COMMENT_ORIGINAL_COMMENT_NAME, originalCommentName);
                     ret.put(Comment.COMMENT_ORIGINAL_COMMENT_NAME, originalCommentName);
+
+                    ret.put(Common.IS_REPLY, true);
                 } else {
                     LOGGER.log(Level.WARN, "Not found orginal comment[id={0}] of reply[name={1}, content={2}]", originalCommentId,
                             commentName, commentContent);
@@ -462,6 +467,7 @@ public class CommentMgmtService {
 
             ret.put(Comment.COMMENT_NAME, commentName);
             ret.put(Comment.COMMENT_CONTENT, commentContent);
+            ret.put(Comment.COMMENT_URL, commentURL);
 
             ret.put(Comment.COMMENT_SHARP_URL, commentSharpURL);
             comment.put(Comment.COMMENT_SHARP_URL, commentSharpURL);
@@ -500,17 +506,15 @@ public class CommentMgmtService {
     /**
      * Adds an article comment with the specified request json object.
      *
-     * @param requestJSONObject the specified request json object, for example,      <pre>
-     * {
-     *     "oId": "", // article id
-     *     "commentName": "",
-     *     "commentEmail": "",
-     *     "commentURL": "", // optional
-     *     "commentContent": "",
-     *     "commentOriginalCommentId": "" // optional
-     * }
-     * </pre>
-     *
+     * @param requestJSONObject the specified request json object, for example,
+     *                          {
+     *                          "oId": "", // article id
+     *                          "commentName": "",
+     *                          "commentEmail": "",
+     *                          "commentURL": "", // optional
+     *                          "commentContent": "",
+     *                          "commentOriginalCommentId": "" // optional
+     *                          }
      * @return add result, for example,      <pre>
      * {
      *     "oId": "", // generated comment id
@@ -519,26 +523,34 @@ public class CommentMgmtService {
      *     "commentThumbnailURL": "",
      *     "commentSharpURL": "",
      *     "commentContent": "", // processed XSS HTML
-     *     "commentName": "" // processed XSS
+     *     "commentName": "", // processed XSS
+     *     "commentURL": "", // optional
+     *     "isReply": boolean,
+     *     "article": {},
+     *     "commentOriginalCommentId": "", // optional
+     *     "commentable": boolean,
+     *     "permalink": "" // article.articlePermalink
      * }
      * </pre>
-     *
      * @throws ServiceException service exception
      */
     public JSONObject addArticleComment(final JSONObject requestJSONObject) throws ServiceException {
         final JSONObject ret = new JSONObject();
+        ret.put(Common.IS_REPLY, false);
 
         final Transaction transaction = commentRepository.beginTransaction();
 
         try {
             final String articleId = requestJSONObject.getString(Keys.OBJECT_ID);
             final JSONObject article = articleRepository.get(articleId);
+            ret.put(Article.ARTICLE, article);
             final String commentName = requestJSONObject.getString(Comment.COMMENT_NAME);
             final String commentEmail = requestJSONObject.getString(Comment.COMMENT_EMAIL).trim().toLowerCase();
             final String commentURL = requestJSONObject.optString(Comment.COMMENT_URL);
             final String commentContent = requestJSONObject.getString(Comment.COMMENT_CONTENT);
 
             final String originalCommentId = requestJSONObject.optString(Comment.COMMENT_ORIGINAL_COMMENT_ID);
+            ret.put(Comment.COMMENT_ORIGINAL_COMMENT_ID, originalCommentId);
             // Step 1: Add comment
             final JSONObject comment = new JSONObject();
 
@@ -558,9 +570,17 @@ public class CommentMgmtService {
 
             comment.put(Comment.COMMENT_DATE, date);
             ret.put(Comment.COMMENT_DATE, DateFormatUtils.format(date, "yyyy-MM-dd HH:mm:ss"));
+            ret.put("commentDate2", date);
+
+            ret.put(Common.COMMENTABLE, preference.getBoolean(Option.ID_C_COMMENTABLE) && article.getBoolean(Article.ARTICLE_COMMENTABLE));
+            ret.put(Common.PERMALINK, article.getString(Article.ARTICLE_PERMALINK));
 
             ret.put(Comment.COMMENT_NAME, commentName);
-            ret.put(Comment.COMMENT_CONTENT, commentContent);
+            String cmtContent = Emotions.convert(commentContent);
+            cmtContent = Markdowns.toHTML(cmtContent);
+            cmtContent = Jsoup.clean(cmtContent, Whitelist.relaxed());
+            ret.put(Comment.COMMENT_CONTENT, cmtContent);
+            ret.put(Comment.COMMENT_URL, commentURL);
 
             if (!Strings.isEmptyOrNull(originalCommentId)) {
                 originalComment = commentRepository.get(originalCommentId);
@@ -570,9 +590,11 @@ public class CommentMgmtService {
 
                     comment.put(Comment.COMMENT_ORIGINAL_COMMENT_NAME, originalCommentName);
                     ret.put(Comment.COMMENT_ORIGINAL_COMMENT_NAME, originalCommentName);
+
+                    ret.put(Common.IS_REPLY, true);
                 } else {
                     LOGGER.log(Level.WARN, "Not found orginal comment[id={0}] of reply[name={1}, content={2}]",
-                            new String[]{originalCommentId, commentName, commentContent});
+                            originalCommentId, commentName, commentContent);
                 }
             }
             setCommentThumbnailURL(comment);
@@ -689,7 +711,7 @@ public class CommentMgmtService {
      * Page comment count +1 for an page specified by the given page id.
      *
      * @param pageId the given page id
-     * @throws JSONException json exception
+     * @throws JSONException       json exception
      * @throws RepositoryException repository exception
      */
     public void incPageCommentCount(final String pageId)
@@ -706,7 +728,7 @@ public class CommentMgmtService {
      * Article comment count -1 for an article specified by the given article id.
      *
      * @param articleId the given article id
-     * @throws JSONException json exception
+     * @throws JSONException       json exception
      * @throws RepositoryException repository exception
      */
     private void decArticleCommentCount(final String articleId)
@@ -724,7 +746,7 @@ public class CommentMgmtService {
      * Page comment count -1 for an page specified by the given page id.
      *
      * @param pageId the given page id
-     * @throws JSONException json exception
+     * @throws JSONException       json exception
      * @throws RepositoryException repository exception
      */
     private void decPageCommentCount(final String pageId)
@@ -739,7 +761,6 @@ public class CommentMgmtService {
 
     /**
      * Sets commenter thumbnail URL for the specified comment.
-     *
      * <p>
      * Try to set thumbnail URL using:
      * <ol>
@@ -779,7 +800,7 @@ public class CommentMgmtService {
 
             statusCode = response.getResponseCode();
         } catch (final IOException e) {
-            LOGGER.log(Level.WARN, "Can not fetch thumbnail from Gravatar[commentEmail={0}]", commentEmail);
+            LOGGER.log(Level.DEBUG, "Can not fetch thumbnail from Gravatar [commentEmail={0}]", commentEmail);
         } finally {
             if (HttpServletResponse.SC_OK != statusCode) {
                 thumbnailURL = Latkes.getStaticServePath() + "/images/" + DEFAULT_USER_THUMBNAIL;

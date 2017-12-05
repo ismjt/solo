@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,8 @@ package org.b3log.solo.processor.util;
 
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
-import java.io.IOException;
-import java.io.StringWriter;
-import java.util.HashMap;
-import java.util.Map;
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.b3log.latke.Keys;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.model.Role;
@@ -45,6 +39,13 @@ import org.b3log.solo.service.UserQueryService;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.util.HashMap;
+import java.util.Map;
+
 
 /**
  * Top bar utilities.
@@ -60,7 +61,7 @@ public class TopBars {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(TopBars.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(TopBars.class);
 
     /**
      * User service.
@@ -119,7 +120,7 @@ public class TopBars {
             topBarModel.put("mobileLabel", langPropsService.get("mobileLabel"));
 
             topBarModel.put("onlineVisitor1Label", langPropsService.get("onlineVisitor1Label"));
-            topBarModel.put(Common.ONLINE_VISITOR_CNT, statisticQueryService.getOnlineVisitorCount());
+            topBarModel.put(Common.ONLINE_VISITOR_CNT, StatisticQueryService.getOnlineVisitorCount());
 
             if (null == currentUser) {
                 topBarModel.put(Common.LOGIN_URL, userService.createLoginURL(Common.ADMIN_INDEX_URI));

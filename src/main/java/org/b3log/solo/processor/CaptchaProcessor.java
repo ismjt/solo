@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,22 +16,7 @@
 package org.b3log.solo.processor;
 
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URL;
-import java.util.Enumeration;
-import java.util.Random;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import org.apache.commons.io.IOUtils;
-import org.b3log.latke.Latkes;
-import org.b3log.latke.RuntimeEnv;
 import org.b3log.latke.image.Image;
 import org.b3log.latke.image.ImageService;
 import org.b3log.latke.image.ImageServiceFactory;
@@ -44,17 +29,24 @@ import org.b3log.latke.servlet.annotation.RequestProcessor;
 import org.b3log.latke.servlet.renderer.PNGRenderer;
 import org.b3log.solo.SoloServletListener;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+import java.io.*;
+import java.util.Enumeration;
+import java.util.Random;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+
 
 /**
  * Captcha processor.
- * 
  * <p>
- *    Checkout <a href="http://toy-code.googlecode.com/svn/trunk/CaptchaGenerator">
- *    the sample captcha generator</a> for more details.
+ * Checkout <a href="http://toy-code.googlecode.com/svn/trunk/CaptchaGenerator"> the sample captcha generator</a> for more details.
  * </p>
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.0.4, Oct 31, 2015
+ * @version 1.1.0.5, Jul 6, 2017
  * @since 0.3.1
  */
 @RequestProcessor
@@ -63,7 +55,7 @@ public class CaptchaProcessor {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(CaptchaProcessor.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(CaptchaProcessor.class);
 
     /**
      * Images service.
@@ -87,7 +79,7 @@ public class CaptchaProcessor {
 
     /**
      * Gets captcha.
-     * 
+     *
      * @param context the specified context
      */
     @RequestProcessing(value = "/captcha.do", method = HTTPRequestMethod.GET)
@@ -112,7 +104,7 @@ public class CaptchaProcessor {
             final HttpSession httpSession = request.getSession(false);
 
             if (null != httpSession) {
-                LOGGER.log(Level.DEBUG, "Captcha[{0}] for session[id={1}]", new Object[] {captcha, httpSession.getId()});
+                LOGGER.log(Level.DEBUG, "Captcha[{0}] for session[id={1}]", captcha, httpSession.getId());
                 httpSession.setAttribute(CAPTCHA, captcha);
             }
 
@@ -135,23 +127,15 @@ public class CaptchaProcessor {
         try {
             captchas = new Image[CAPTCHA_COUNT];
 
-            ZipFile zipFile;
+            final InputStream inputStream = SoloServletListener.class.getClassLoader().getResourceAsStream("captcha_static.zip");
+            final File file = File.createTempFile("b3log_captcha_static", null);
+            final OutputStream outputStream = new FileOutputStream(file);
 
-            if (RuntimeEnv.LOCAL == Latkes.getRuntimeEnv()) {
-                final InputStream inputStream = SoloServletListener.class.getClassLoader().getResourceAsStream("captcha_static.zip");
-                final File file = File.createTempFile("b3log_captcha_static", null);
-                final OutputStream outputStream = new FileOutputStream(file);
+            IOUtils.copy(inputStream, outputStream);
+            final ZipFile zipFile = new ZipFile(file);
 
-                IOUtils.copy(inputStream, outputStream);
-                zipFile = new ZipFile(file);
-                
-                IOUtils.closeQuietly(inputStream);
-                IOUtils.closeQuietly(outputStream);
-            } else {
-                final URL captchaURL = SoloServletListener.class.getClassLoader().getResource("captcha_static.zip");
-
-                zipFile = new ZipFile(captchaURL.getFile());
-            }
+            IOUtils.closeQuietly(inputStream);
+            IOUtils.closeQuietly(outputStream);
 
             final Enumeration<? extends ZipEntry> entries = zipFile.entries();
 

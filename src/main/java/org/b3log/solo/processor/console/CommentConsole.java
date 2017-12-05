@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,9 @@
 package org.b3log.solo.processor.console;
 
 
-import java.util.List;
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.service.LangPropsService;
@@ -38,6 +35,10 @@ import org.b3log.solo.service.UserQueryService;
 import org.b3log.solo.util.QueryResults;
 import org.json.JSONObject;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.util.List;
+
 
 /**
  * Comment console request processing.
@@ -52,7 +53,7 @@ public class CommentConsole {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(CommentConsole.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(CommentConsole.class);
 
     /**
      * User query service.
@@ -80,7 +81,6 @@ public class CommentConsole {
 
     /**
      * Removes a comment of an article by the specified request.
-     *
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -91,25 +91,22 @@ public class CommentConsole {
      * </pre>
      * </p>
      *
-     * @param request the specified http servlet request
+     * @param request  the specified http servlet request
      * @param response the specified http servlet response
-     * @param context the specified http request context
+     * @param context  the specified http request context
      * @throws Exception exception
      */
     @RequestProcessing(value = "/console/page/comment/*", method = HTTPRequestMethod.DELETE)
     public void removePageComment(final HttpServletRequest request, final HttpServletResponse response, final HTTPRequestContext context)
-        throws Exception {
+            throws Exception {
         if (!userQueryService.isLoggedIn(request, response)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
-
         final JSONObject ret = new JSONObject();
-
         renderer.setJSONObject(ret);
 
         try {
@@ -136,7 +133,6 @@ public class CommentConsole {
 
     /**
      * Removes a comment of an article by the specified request.
-     *
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -147,25 +143,22 @@ public class CommentConsole {
      * </pre>
      * </p>
      *
-     * @param request the specified http servlet request
+     * @param request  the specified http servlet request
      * @param response the specified http servlet response
-     * @param context the specified http request context
+     * @param context  the specified http request context
      * @throws Exception exception
      */
     @RequestProcessing(value = "/console/article/comment/*", method = HTTPRequestMethod.DELETE)
     public void removeArticleComment(final HttpServletRequest request, final HttpServletResponse response, final HTTPRequestContext context)
-        throws Exception {
+            throws Exception {
         if (!userQueryService.isLoggedIn(request, response)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
-
         final JSONObject ret = new JSONObject();
-
         renderer.setJSONObject(ret);
 
         try {
@@ -192,13 +185,11 @@ public class CommentConsole {
 
     /**
      * Gets comments by the specified request.
-     *
      * <p>
      * The request URI contains the pagination arguments. For example, the
      * request URI is /console/comments/1/10/20, means the current page is 1, the
      * page size is 10, and the window size is 20.
      * </p>
-     *
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -223,22 +214,21 @@ public class CommentConsole {
      * </pre>
      * </p>
      *
-     * @param request the specified http servlet request
+     * @param request  the specified http servlet request
      * @param response the specified http servlet response
-     * @param context the specified http request context
+     * @param context  the specified http request context
      * @throws Exception exception
      */
     @RequestProcessing(value = "/console/comments/*/*/*"/* Requests.PAGINATION_PATH_PATTERN */,
-        method = HTTPRequestMethod.GET)
+            method = HTTPRequestMethod.GET)
     public void getComments(final HttpServletRequest request, final HttpServletResponse response, final HTTPRequestContext context)
-        throws Exception {
+            throws Exception {
         if (!userQueryService.isLoggedIn(request, response)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
 
         try {
@@ -246,7 +236,6 @@ public class CommentConsole {
             final String path = requestURI.substring((Latkes.getContextPath() + "/console/comments/").length());
 
             final JSONObject requestJSONObject = Requests.buildPaginationRequest(path);
-
             final JSONObject result = commentQueryService.getComments(requestJSONObject);
 
             result.put(Keys.STATUS_CODE, true);
@@ -264,7 +253,6 @@ public class CommentConsole {
 
     /**
      * Gets comments of an article specified by the article id for administrator.
-     *
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -285,26 +273,24 @@ public class CommentConsole {
      * </pre>
      * </p>
      *
-     * @param context the specified http request context
-     * @param request the specified http servlet request
+     * @param context  the specified http request context
+     * @param request  the specified http servlet request
      * @param response the specified http servlet response
      * @throws Exception exception
      */
     @RequestProcessing(value = "/console/comments/article/*", method = HTTPRequestMethod.GET)
     public void getArticleComments(final HTTPRequestContext context, final HttpServletRequest request, final HttpServletResponse response)
-        throws Exception {
+            throws Exception {
         if (!userQueryService.isLoggedIn(request, response)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
 
         try {
             final JSONObject ret = new JSONObject();
-
             renderer.setJSONObject(ret);
 
             final String requestURI = request.getRequestURI();
@@ -326,7 +312,6 @@ public class CommentConsole {
 
     /**
      * Gets comments of a page specified by the article id for administrator.
-     *
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -347,26 +332,24 @@ public class CommentConsole {
      * </pre>
      * </p>
      *
-     * @param context the specified http request context
-     * @param request the specified http servlet request
+     * @param context  the specified http request context
+     * @param request  the specified http servlet request
      * @param response the specified http servlet response
      * @throws Exception exception
      */
     @RequestProcessing(value = "/console/comments/page/*", method = HTTPRequestMethod.GET)
     public void getPageComments(final HTTPRequestContext context, final HttpServletRequest request, final HttpServletResponse response)
-        throws Exception {
+            throws Exception {
         if (!userQueryService.isLoggedIn(request, response)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
 
         try {
             final JSONObject ret = new JSONObject();
-
             renderer.setJSONObject(ret);
 
             final String requestURI = request.getRequestURI();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,9 @@
 package org.b3log.solo.processor.console;
 
 
-import java.util.Map;
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.model.Plugin;
@@ -40,6 +37,10 @@ import org.b3log.solo.service.PluginQueryService;
 import org.b3log.solo.util.QueryResults;
 import org.json.JSONObject;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.util.Map;
+
 
 /**
  * Plugin console request processing.
@@ -56,7 +57,7 @@ public class PluginConsole {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(PluginConsole.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(PluginConsole.class);
 
     /**
      * Plugin query service.
@@ -78,28 +79,26 @@ public class PluginConsole {
 
     /**
      * Sets a plugin's status with the specified plugin id, status.
-     * 
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
      * {
      *     "sc": boolean,
-     *     "msg": "" 
+     *     "msg": ""
      * }
      * </pre>
      * </p>
-     * 
-     * @param request the specified http servlet request
+     *
+     * @param request  the specified http servlet request
      * @param response the specified http servlet response
-     * @param context the specified http request context
+     * @param context  the specified http request context
      * @throws Exception exception
      */
     @RequestProcessing(value = "/console/plugin/status/", method = HTTPRequestMethod.PUT)
     public void setPluginStatus(final HttpServletRequest request, final HttpServletResponse response, final HTTPRequestContext context)
-        throws Exception {
+            throws Exception {
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
 
         final JSONObject requestJSONObject = Requests.parseRequestJSONObject(request, response);
@@ -114,13 +113,11 @@ public class PluginConsole {
 
     /**
      * Gets plugins by the specified request.
-     * 
      * <p>
-     * The request URI contains the pagination arguments. For example, the 
-     * request URI is /console/plugins/1/10/20, means the current page is 1, the 
+     * The request URI contains the pagination arguments. For example, the
+     * request URI is /console/plugins/1/10/20, means the current page is 1, the
      * page size is 10, and the window size is 20.
      * </p>
-     * 
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -139,20 +136,19 @@ public class PluginConsole {
      * }
      * </pre>
      * </p>
-     * 
-     * @param request the specified http servlet request
+     *
+     * @param request  the specified http servlet request
      * @param response the specified http servlet response
-     * @param context the specified http request context
+     * @param context  the specified http request context
      * @throws Exception exception
      * @see Requests#PAGINATION_PATH_PATTERN
      */
     @RequestProcessing(value = "/console/plugins/*/*/*"/* Requests.PAGINATION_PATH_PATTERN */,
-        method = HTTPRequestMethod.GET)
+            method = HTTPRequestMethod.GET)
     public void getPlugins(final HttpServletRequest request, final HttpServletResponse response, final HTTPRequestContext context)
-        throws Exception {
+            throws Exception {
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
 
         try {
@@ -178,15 +174,16 @@ public class PluginConsole {
 
     /**
      * get the info of the specified pluginoId,just fot the plugin-setting.
-     * @param request the specified http servlet request
+     *
+     * @param request  the specified http servlet request
      * @param response the specified http servlet response
-     * @param context the specified http request context
+     * @param context  the specified http request context
      * @param renderer the specified {@link ConsoleRenderer}
      * @throws Exception exception
      */
     @RequestProcessing(value = "/console/plugin/toSetting", method = HTTPRequestMethod.POST)
     public void toSetting(final HttpServletRequest request, final HttpServletResponse response, final HTTPRequestContext context,
-        final ConsoleRenderer renderer) throws Exception {
+                          final ConsoleRenderer renderer) throws Exception {
 
         context.setRenderer(renderer);
 
@@ -217,17 +214,17 @@ public class PluginConsole {
     }
 
     /**
-     * update the setting of the plugin. 
-     * 
-     * @param request the specified http servlet request
+     * update the setting of the plugin.
+     *
+     * @param request  the specified http servlet request
      * @param response the specified http servlet response
-     * @param context the specified http request context
+     * @param context  the specified http request context
      * @param renderer the specified {@link ConsoleRenderer}
      * @throws Exception exception
      */
     @RequestProcessing(value = "/console/plugin/updateSetting", method = HTTPRequestMethod.POST)
     public void updateSetting(final HttpServletRequest request, final HttpServletResponse response, final HTTPRequestContext context,
-        final JSONRenderer renderer) throws Exception {
+                              final JSONRenderer renderer) throws Exception {
 
         context.setRenderer(renderer);
 

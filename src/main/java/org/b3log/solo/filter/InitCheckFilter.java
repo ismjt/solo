@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,6 @@
  */
 package org.b3log.solo.filter;
 
-import java.io.IOException;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
 import org.b3log.latke.ioc.LatkeBeanManager;
@@ -37,6 +28,11 @@ import org.b3log.latke.servlet.HttpControl;
 import org.b3log.latke.servlet.renderer.HTTP500Renderer;
 import org.b3log.solo.service.InitService;
 
+import javax.servlet.*;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
 /**
  * Checks initialization filter.
  *
@@ -49,7 +45,7 @@ public final class InitCheckFilter implements Filter {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(InitCheckFilter.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(InitCheckFilter.class);
 
     /**
      * Whether initialization info reported.

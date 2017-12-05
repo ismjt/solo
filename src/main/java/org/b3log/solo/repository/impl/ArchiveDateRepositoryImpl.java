@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +15,11 @@
  */
 package org.b3log.solo.repository.impl;
 
-
-import java.text.ParseException;
-import java.util.Iterator;
-import java.util.List;
 import org.apache.commons.lang.time.DateUtils;
 import org.b3log.latke.Keys;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
-import org.b3log.latke.repository.AbstractRepository;
-import org.b3log.latke.repository.FilterOperator;
-import org.b3log.latke.repository.PropertyFilter;
-import org.b3log.latke.repository.Query;
-import org.b3log.latke.repository.RepositoryException;
-import org.b3log.latke.repository.SortDirection;
+import org.b3log.latke.repository.*;
 import org.b3log.latke.repository.annotation.Repository;
 import org.b3log.latke.util.CollectionUtils;
 import org.b3log.solo.model.ArchiveDate;
@@ -36,12 +27,15 @@ import org.b3log.solo.repository.ArchiveDateRepository;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.text.ParseException;
+import java.util.Iterator;
+import java.util.List;
 
 /**
  * Archive date repository.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.8, Jan 31, 2013
+ * @version 1.0.0.9, Jun 6, 2017
  * @since 0.3.1
  */
 @Repository
@@ -50,7 +44,7 @@ public class ArchiveDateRepositoryImpl extends AbstractRepository implements Arc
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(ArchiveDateRepositoryImpl.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ArchiveDateRepositoryImpl.class);
 
     /**
      * Public constructor.
@@ -64,13 +58,12 @@ public class ArchiveDateRepositoryImpl extends AbstractRepository implements Arc
         long time = 0L;
 
         try {
-            time = DateUtils.parseDate(archiveDate, new String[] {"yyyy/MM"}).getTime();
+            time = DateUtils.parseDate(archiveDate, new String[]{"yyyy/MM"}).getTime();
         } catch (final ParseException e) {
-            LOGGER.log(Level.ERROR, "Can not parse archive date [" + archiveDate + "]", e);
-            throw new RepositoryException("Can not parse archive date [" + archiveDate + "]");
+            return null;
         }
 
-        LOGGER.log(Level.TRACE, "Archive date [{0}] parsed to time [{1}]", new Object[] {archiveDate, time});
+        LOGGER.log(Level.TRACE, "Archive date [{0}] parsed to time [{1}]", archiveDate, time);
 
         final Query query = new Query();
 
@@ -89,7 +82,7 @@ public class ArchiveDateRepositoryImpl extends AbstractRepository implements Arc
     @Override
     public List<JSONObject> getArchiveDates() throws RepositoryException {
         final org.b3log.latke.repository.Query query = new Query().addSort(ArchiveDate.ARCHIVE_TIME, SortDirection.DESCENDING).setPageCount(
-            1);
+                1);
         final JSONObject result = get(query);
 
         final JSONArray archiveDates = result.optJSONArray(Keys.RESULTS);

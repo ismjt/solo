@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 package org.b3log.solo.event.comment;
-
 
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
@@ -36,14 +35,14 @@ import org.b3log.solo.model.Page;
 import org.b3log.solo.repository.CommentRepository;
 import org.b3log.solo.repository.impl.CommentRepositoryImpl;
 import org.b3log.solo.service.PreferenceQueryService;
+import org.b3log.solo.util.Mails;
 import org.json.JSONObject;
-
 
 /**
  * This listener is responsible for processing page comment reply.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.1.3, Nov 20, 2015
+ * @version 1.0.2.4, Jul 20, 2017
  * @since 0.3.1
  */
 public final class PageCommentReplyNotifier extends AbstractEventListener<JSONObject> {
@@ -51,7 +50,7 @@ public final class PageCommentReplyNotifier extends AbstractEventListener<JSONOb
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(PageCommentReplyNotifier.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(PageCommentReplyNotifier.class);
 
     /**
      * Mail service.
@@ -65,7 +64,7 @@ public final class PageCommentReplyNotifier extends AbstractEventListener<JSONOb
         final JSONObject page = eventData.optJSONObject(Page.PAGE);
 
         LOGGER.log(Level.DEBUG, "Processing an event[type={0}, data={1}] in listener[className={2}]",
-            new Object[] {event.getType(), eventData, PageCommentReplyNotifier.class.getName()});
+                event.getType(), eventData, PageCommentReplyNotifier.class.getName());
         final String originalCommentId = comment.optString(Comment.COMMENT_ORIGINAL_COMMENT_ID);
 
         if (Strings.isEmptyOrNull(originalCommentId)) {
@@ -73,22 +72,29 @@ public final class PageCommentReplyNotifier extends AbstractEventListener<JSONOb
             return;
         }
 
+        if (!Mails.isConfigured()) {
+            return;
+        }
+
         final LatkeBeanManager beanManager = Lifecycle.getBeanManager();
         final PreferenceQueryService preferenceQueryService = beanManager.getReference(PreferenceQueryService.class);
-        
+
         final CommentRepository commentRepository = beanManager.getReference(CommentRepositoryImpl.class);
-        
+
         try {
             final String commentEmail = comment.getString(Comment.COMMENT_EMAIL);
             final JSONObject originalComment = commentRepository.get(originalCommentId);
-            final String originalCommentEmail = originalComment.getString(Comment.COMMENT_EMAIL);
 
+            final String originalCommentEmail = originalComment.getString(Comment.COMMENT_EMAIL);
             if (originalCommentEmail.equalsIgnoreCase(commentEmail)) {
                 return;
             }
 
-            final JSONObject preference = preferenceQueryService.getPreference();
+            if (!Strings.isEmail(originalCommentEmail)) {
+                return;
+            }
 
+            final JSONObject preference = preferenceQueryService.getPreference();
             if (null == preference) {
                 throw new EventException("Not found preference");
             }
@@ -119,14 +125,16 @@ public final class PageCommentReplyNotifier extends AbstractEventListener<JSONOb
             }
 
             final String mailBody = replyNotificationTemplate.getString("body").replace("${postLink}", pageLink).replace("${postTitle}", pageTitle).replace("${replier}", commenter).replace("${replyURL}", Latkes.getServePath() + commentSharpURL).replace(
-                "${replyContent}", commentContent);
+                    "${replyContent}", commentContent);
 
             message.setHtmlBody(mailBody);
             LOGGER.log(Level.DEBUG, "Sending a mail[mailSubject={0}, mailBody=[{1}] to [{2}]",
-                new Object[] {mailSubject, mailBody, originalCommentEmail});
+                    mailSubject, mailBody, originalCommentEmail);
+
             mailService.send(message);
         } catch (final Exception e) {
             LOGGER.log(Level.ERROR, e.getMessage(), e);
+
             throw new EventException("Reply notifier error!");
         }
     }

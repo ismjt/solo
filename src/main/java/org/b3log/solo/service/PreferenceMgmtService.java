@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,32 +15,33 @@
  */
 package org.b3log.solo.service;
 
-import org.b3log.latke.service.LangPropsService;
-import org.b3log.solo.util.TimeZones;
-import org.b3log.solo.util.Skins;
-import java.util.Iterator;
-import java.util.Locale;
-import java.util.Set;
-import javax.inject.Inject;
-import javax.servlet.ServletContext;
 import org.b3log.latke.Latkes;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.repository.Transaction;
+import org.b3log.latke.service.LangPropsService;
 import org.b3log.latke.service.ServiceException;
 import org.b3log.latke.service.annotation.Service;
 import org.b3log.latke.util.Locales;
 import org.b3log.latke.util.Stopwatchs;
 import org.b3log.latke.util.freemarker.Templates;
 import org.b3log.solo.SoloServletListener;
+import org.b3log.solo.cache.PreferenceCache;
 import org.b3log.solo.model.Option;
 import org.b3log.solo.model.Skin;
+import org.b3log.solo.repository.OptionRepository;
+import org.b3log.solo.util.Skins;
+import org.b3log.solo.util.TimeZones;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import static org.b3log.solo.model.Skin.SKINS;
-import static org.b3log.solo.model.Skin.SKIN_DIR_NAME;
-import static org.b3log.solo.model.Skin.SKIN_NAME;
-import org.b3log.solo.repository.OptionRepository;
+
+import javax.servlet.ServletContext;
+import java.util.Iterator;
+import java.util.Locale;
+import java.util.Set;
+
+import static org.b3log.solo.model.Skin.*;
 import static org.b3log.solo.util.Skins.getSkinDirNames;
 import static org.b3log.solo.util.Skins.setDirectoryForTemplateLoading;
 
@@ -48,7 +49,7 @@ import static org.b3log.solo.util.Skins.setDirectoryForTemplateLoading;
  * Preference management service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.3.1.11, Nov 23, 2015
+ * @version 1.3.2.13, Jul 22, 2017
  * @since 0.4.0
  */
 @Service
@@ -57,7 +58,7 @@ public class PreferenceMgmtService {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(PreferenceMgmtService.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(PreferenceMgmtService.class);
 
     /**
      * Preference query service.
@@ -78,8 +79,13 @@ public class PreferenceMgmtService {
     private LangPropsService langPropsService;
 
     /**
+     * Preference cache.
+     */
+    @Inject
+    private PreferenceCache preferenceCache;
+
+    /**
      * Loads skins for the specified preference and initializes templates loading.
-     *
      * <p>
      * If the skins directory has been changed, persists the change into preference.
      * </p>
@@ -120,14 +126,13 @@ public class PreferenceMgmtService {
 
         if (!skinDirNames.contains(currentSkinDirName)) {
             LOGGER.log(Level.WARN, "Configred skin[dirName={0}] can not find, try to use " + "default skin[dirName="
-                    + Option.DefaultPreference.DEFAULT_SKIN_DIR_NAME + "] instead.",
-                    currentSkinDirName);
+                    + Option.DefaultPreference.DEFAULT_SKIN_DIR_NAME + "] instead.", currentSkinDirName);
             if (!skinDirNames.contains(Option.DefaultPreference.DEFAULT_SKIN_DIR_NAME)) {
                 LOGGER.log(Level.ERROR, "Can not find skin[dirName=" + Option.DefaultPreference.DEFAULT_SKIN_DIR_NAME + "]");
 
                 throw new IllegalStateException(
                         "Can not find default skin[dirName=" + Option.DefaultPreference.DEFAULT_SKIN_DIR_NAME
-                        + "], please redeploy your Solo and make sure contains this default skin!");
+                                + "], please redeploy your Solo and make sure contains this default skin!");
             }
 
             preference.put(SKIN_DIR_NAME, Option.DefaultPreference.DEFAULT_SKIN_DIR_NAME);
@@ -137,7 +142,6 @@ public class PreferenceMgmtService {
         }
 
         final String skinsString = skinArray.toString();
-
         if (!skinsString.equals(preference.getString(SKINS))) {
             LOGGER.debug("The skins directory has been changed, persists the change into preference");
             preference.put(SKINS, skinsString);
@@ -147,7 +151,6 @@ public class PreferenceMgmtService {
         setDirectoryForTemplateLoading(preference.getString(SKIN_DIR_NAME));
 
         final String localeString = preference.getString(Option.ID_C_LOCALE_STRING);
-
         if ("zh_CN".equals(localeString)) {
             TimeZones.setTimeZone("Asia/Shanghai");
         }
@@ -176,6 +179,8 @@ public class PreferenceMgmtService {
             optionRepository.update(Option.ID_C_REPLY_NOTI_TPL_SUBJECT, subjectOpt);
 
             transaction.commit();
+
+            preferenceCache.clear();
         } catch (final Exception e) {
             if (transaction.isActive()) {
                 transaction.rollback();
@@ -193,9 +198,7 @@ public class PreferenceMgmtService {
      * @throws ServiceException service exception
      */
     public void updatePreference(final JSONObject preference) throws ServiceException {
-        @SuppressWarnings("unchecked")
         final Iterator<String> keys = preference.keys();
-
         while (keys.hasNext()) {
             final String key = keys.next();
 
@@ -216,11 +219,9 @@ public class PreferenceMgmtService {
 
             for (final String dirName : skinDirNames) {
                 final JSONObject skin = new JSONObject();
-
                 skinArray.put(skin);
 
                 final String name = Latkes.getSkinName(dirName);
-
                 skin.put(Skin.SKIN_NAME, name);
                 skin.put(Skin.SKIN_DIR_NAME, dirName);
             }
@@ -280,7 +281,9 @@ public class PreferenceMgmtService {
             optionRepository.update(Option.ID_C_COMMENTABLE, commentableOpt);
 
             final JSONObject editorTypeOpt = optionRepository.get(Option.ID_C_EDITOR_TYPE);
-            editorTypeOpt.put(Option.OPTION_VALUE, preference.optString(Option.ID_C_EDITOR_TYPE));
+            // https://github.com/b3log/solo/issues/12285
+            // editorTypeOpt.put(Option.OPTION_VALUE, preference.optString(Option.ID_C_EDITOR_TYPE));
+            editorTypeOpt.put(Option.OPTION_VALUE, Option.DefaultPreference.DEFAULT_EDITOR_TYPE);
             optionRepository.update(Option.ID_C_EDITOR_TYPE, editorTypeOpt);
 
             final JSONObject enableArticleUpdateHintOpt = optionRepository.get(Option.ID_C_ENABLE_ARTICLE_UPDATE_HINT);
@@ -355,14 +358,6 @@ public class PreferenceMgmtService {
             relevantArticlesDisplayCountOpt.put(Option.OPTION_VALUE, preference.optString(Option.ID_C_RELEVANT_ARTICLES_DISPLAY_CNT));
             optionRepository.update(Option.ID_C_RELEVANT_ARTICLES_DISPLAY_CNT, relevantArticlesDisplayCountOpt);
 
-            final JSONObject replyNotiTplBodyOpt = optionRepository.get(Option.ID_C_REPLY_NOTI_TPL_BODY);
-            replyNotiTplBodyOpt.put(Option.OPTION_VALUE, preference.optString(Option.ID_C_REPLY_NOTI_TPL_BODY));
-            optionRepository.update(Option.ID_C_REPLY_NOTI_TPL_BODY, replyNotiTplBodyOpt);
-
-            final JSONObject replyNotiTplSubjectOpt = optionRepository.get(Option.ID_C_REPLY_NOTI_TPL_SUBJECT);
-            replyNotiTplSubjectOpt.put(Option.OPTION_VALUE, preference.optString(Option.ID_C_REPLY_NOTI_TPL_SUBJECT));
-            optionRepository.update(Option.ID_C_REPLY_NOTI_TPL_SUBJECT, replyNotiTplSubjectOpt);
-
             final JSONObject signsOpt = optionRepository.get(Option.ID_C_SIGNS);
             signsOpt.put(Option.OPTION_VALUE, preference.optString(Option.ID_C_SIGNS));
             optionRepository.update(Option.ID_C_SIGNS, signsOpt);
@@ -388,6 +383,8 @@ public class PreferenceMgmtService {
             optionRepository.update(Option.ID_C_VERSION, versionOpt);
 
             transaction.commit();
+
+            preferenceCache.clear();
 
             final ServletContext servletContext = SoloServletListener.getServletContext();
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,8 @@
  */
 package org.b3log.solo.service;
 
-import java.util.Iterator;
-import java.util.List;
-import javax.inject.Inject;
 import org.b3log.latke.Keys;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.repository.Query;
@@ -33,6 +31,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Iterator;
+import java.util.List;
+
 /**
  * Tag query service.
  *
@@ -46,7 +47,7 @@ public class TagQueryService {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(TagQueryService.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(TagQueryService.class);
 
     /**
      * Tag repository.

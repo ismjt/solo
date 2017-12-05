@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,9 @@
  */
 package org.b3log.solo.processor;
 
-import java.net.URL;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
-import org.b3log.latke.RuntimeEnv;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.model.Pagination;
 import org.b3log.latke.model.User;
@@ -41,21 +34,23 @@ import org.b3log.latke.util.Strings;
 import org.b3log.solo.SoloServletListener;
 import org.b3log.solo.model.Article;
 import org.b3log.solo.model.Option;
-import org.b3log.solo.model.Statistic;
 import org.b3log.solo.model.Tag;
-import org.b3log.solo.service.ArticleQueryService;
-import org.b3log.solo.service.PreferenceQueryService;
-import org.b3log.solo.service.StatisticQueryService;
-import org.b3log.solo.service.TagQueryService;
-import org.b3log.solo.service.UserQueryService;
+import org.b3log.solo.service.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.net.URL;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Blog processor.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.3.0.4, Dec 17, 2015
+ * @version 1.3.1.0, Nov 15, 2017
  * @since 0.4.6
  */
 @RequestProcessor
@@ -64,7 +59,7 @@ public class BlogProcessor {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(BlogProcessor.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(BlogProcessor.class);
 
     /**
      * Article query service.
@@ -97,13 +92,18 @@ public class BlogProcessor {
     private PreferenceQueryService preferenceQueryService;
 
     /**
+     * Option query service.
+     */
+    @Inject
+    private OptionQueryService optionQueryService;
+
+    /**
      * URL fetch service.
      */
     private final URLFetchService urlFetchService = URLFetchServiceFactory.getURLFetchService();
 
     /**
      * Gets blog information.
-     *
      * <ul>
      * <li>Time of the recent updated article</li>
      * <li>Article count</li>
@@ -112,8 +112,10 @@ public class BlogProcessor {
      * <li>Serve path</li>
      * <li>Static serve path</li>
      * <li>Solo version</li>
-     * <li>Runtime environment (LOCAL)</li>
+     * <li>Runtime mode</li>
+     * <li>Runtime database</li>
      * <li>Locale</li>
+     * <li>Admin username</li>
      * </ul>
      *
      * @param context the specified context
@@ -122,29 +124,28 @@ public class BlogProcessor {
     @RequestProcessing(value = "/blog/info", method = HTTPRequestMethod.GET)
     public void getBlogInfo(final HTTPRequestContext context) throws Exception {
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
-
         final JSONObject jsonObject = new JSONObject();
-
         renderer.setJSONObject(jsonObject);
 
         jsonObject.put("recentArticleTime", articleQueryService.getRecentArticleTime());
         final JSONObject statistic = statisticQueryService.getStatistic();
-
-        jsonObject.put("articleCount", statistic.getLong(Statistic.STATISTIC_PUBLISHED_ARTICLE_COUNT));
-        jsonObject.put("commentCount", statistic.getLong(Statistic.STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT));
+        jsonObject.put("articleCount", statistic.getLong(Option.ID_C_STATISTIC_PUBLISHED_ARTICLE_COUNT));
+        jsonObject.put("commentCount", statistic.getLong(Option.ID_C_STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT));
         jsonObject.put("tagCount", tagQueryService.getTagCount());
         jsonObject.put("servePath", Latkes.getServePath());
         jsonObject.put("staticServePath", Latkes.getStaticServePath());
         jsonObject.put("version", SoloServletListener.VERSION);
-        jsonObject.put("locale", Latkes.getLocale());
         jsonObject.put("runtimeMode", Latkes.getRuntimeMode());
-        final RuntimeEnv runtimeEnv = Latkes.getRuntimeEnv();
-
-        jsonObject.put("runtimeEnv", runtimeEnv);
-        if (RuntimeEnv.LOCAL == runtimeEnv) {
-            jsonObject.put("runtimeDatabase", Latkes.getRuntimeDatabase());
+        jsonObject.put("runtimeDatabase", Latkes.getRuntimeDatabase());
+        jsonObject.put("locale", Latkes.getLocale());
+        jsonObject.put("userName", userQueryService.getAdmin().optString(User.USER_NAME));
+        jsonObject.put("qiniuDomain", "");
+        jsonObject.put("qiniuBucket", "");
+        final JSONObject qiniu = optionQueryService.getOptions(Option.CATEGORY_C_QINIU);
+        if (null != qiniu) {
+            jsonObject.put("qiniuDomain", qiniu.optString(Option.ID_C_QINIU_DOMAIN));
+            jsonObject.put("qiniuBucket", qiniu.optString(Option.ID_C_QINIU_BUCKET));
         }
     }
 
@@ -157,11 +158,8 @@ public class BlogProcessor {
     @RequestProcessing(value = "/blog/symphony/user", method = HTTPRequestMethod.GET)
     public void syncUser(final HTTPRequestContext context) throws Exception {
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
-
         final JSONObject jsonObject = new JSONObject();
-
         renderer.setJSONObject(jsonObject);
 
         if (Latkes.getServePath().contains("localhost")) {
@@ -169,19 +167,16 @@ public class BlogProcessor {
         }
 
         final JSONObject preference = preferenceQueryService.getPreference();
-
         if (null == preference) {
             return; // not init yet
         }
 
         final HTTPRequest httpRequest = new HTTPRequest();
-
         httpRequest.setURL(new URL(SoloServletListener.B3LOG_SYMPHONY_SERVE_PATH + "/apis/user"));
         httpRequest.setRequestMethod(HTTPRequestMethod.POST);
         final JSONObject requestJSONObject = new JSONObject();
 
         final JSONObject admin = userQueryService.getAdmin();
-
         requestJSONObject.put(User.USER_NAME, admin.getString(User.USER_NAME));
         requestJSONObject.put(User.USER_EMAIL, admin.getString(User.USER_EMAIL));
         requestJSONObject.put(User.USER_PASSWORD, admin.getString(User.USER_PASSWORD));
@@ -195,7 +190,7 @@ public class BlogProcessor {
 
     /**
      * Gets tags of all articles.
-     *
+     * <p>
      * <pre>
      * {
      *     "data": [
@@ -205,9 +200,10 @@ public class BlogProcessor {
      *     ]
      * }
      * </pre>
+     * </p>
      *
-     * @param context the specified context
-     * @param request the specified HTTP servlet request
+     * @param context  the specified context
+     * @param request  the specified HTTP servlet request
      * @param response the specified HTTP servlet response
      * @throws Exception io exception
      */
@@ -215,7 +211,6 @@ public class BlogProcessor {
     public void getArticlesTags(final HTTPRequestContext context, final HttpServletRequest request, final HttpServletResponse response)
             throws Exception {
         final String pwd = request.getParameter("pwd");
-
         if (Strings.isEmptyOrNull(pwd)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
 
@@ -223,7 +218,6 @@ public class BlogProcessor {
         }
 
         final JSONObject admin = userQueryService.getAdmin();
-
         if (!MD5.hash(pwd).equals(admin.getString(User.USER_PASSWORD))) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
 
@@ -231,7 +225,6 @@ public class BlogProcessor {
         }
 
         final JSONObject requestJSONObject = new JSONObject();
-
         requestJSONObject.put(Pagination.PAGINATION_CURRENT_PAGE_NUM, 1);
         requestJSONObject.put(Pagination.PAGINATION_PAGE_SIZE, Integer.MAX_VALUE);
         requestJSONObject.put(Pagination.PAGINATION_WINDOW_SIZE, Integer.MAX_VALUE);
@@ -253,15 +246,11 @@ public class BlogProcessor {
         final JSONArray articles = result.optJSONArray(Article.ARTICLES);
 
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
-
         final JSONObject ret = new JSONObject();
-
         renderer.setJSONObject(ret);
 
         final JSONArray data = new JSONArray();
-
         ret.put("data", data);
 
         for (int i = 0; i < articles.length(); i++) {
@@ -269,14 +258,12 @@ public class BlogProcessor {
             final String tagString = article.optString(Article.ARTICLE_TAGS_REF);
 
             final JSONArray tagArray = new JSONArray();
-
             data.put(tagArray);
 
             final String[] tags = tagString.split(",");
 
             for (final String tag : tags) {
                 final String trim = tag.trim();
-
                 if (!Strings.isEmptyOrNull(trim)) {
                     tagArray.put(tag);
                 }
@@ -286,15 +273,16 @@ public class BlogProcessor {
 
     /**
      * Gets interest tags (top 10 and bottom 10).
-     *
+     * <p>
      * <pre>
      * {
      *     "data": ["tag1", "tag2", ....]
      * }
      * </pre>
+     * </p>
      *
-     * @param context the specified context
-     * @param request the specified HTTP servlet request
+     * @param context  the specified context
+     * @param request  the specified HTTP servlet request
      * @param response the specified HTTP servlet response
      * @throws Exception io exception
      */
@@ -306,7 +294,7 @@ public class BlogProcessor {
 
         final JSONObject ret = new JSONObject();
         renderer.setJSONObject(ret);
-        final Set<String> tagTitles = new HashSet<String>();
+        final Set<String> tagTitles = new HashSet<>();
 
         final List<JSONObject> topTags = tagQueryService.getTopTags(10);
         for (final JSONObject topTag : topTags) {

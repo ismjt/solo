@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,8 @@
  */
 package org.b3log.solo.api.symphony;
 
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.b3log.latke.Keys;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.model.User;
@@ -38,13 +36,15 @@ import org.b3log.solo.service.PreferenceQueryService;
 import org.b3log.solo.service.UserQueryService;
 import org.b3log.solo.util.QueryResults;
 import org.json.JSONObject;
-import org.jsoup.Jsoup;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 /**
  * Article receiver (from B3log Symphony).
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.1.7, Dec 31, 2015
+ * @version 1.0.4.0, Nov 20, 2017
  * @since 0.5.5
  */
 @RequestProcessor
@@ -53,7 +53,7 @@ public class ArticleReceiver {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(ArticleReceiver.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ArticleReceiver.class);
 
     /**
      * Preference query service.
@@ -80,13 +80,7 @@ public class ArticleReceiver {
     private UserQueryService userQueryService;
 
     /**
-     * Article abstract length.
-     */
-    private static final int ARTICLE_ABSTRACT_LENGTH = 500;
-
-    /**
      * Adds an article with the specified request.
-     *
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -98,30 +92,24 @@ public class ArticleReceiver {
      * </pre>
      * </p>
      *
-     * @param request the specified http servlet request, for example,      <pre>
-     * {
-     *     "article": {
-     *         "oId": "",
-     *         "articleTitle": "",
-     *         "articleContent": "",
-     *         "articleTags": "tag1,tag2,tag3",
-     *         "userB3Key": "",
-     *         "articleEditorType": ""
-     *     }
-     * }
-     * </pre>
-     *
+     * @param request  the specified http servlet request, for example,
+     *                 "article": {
+     *                 "oId": "",
+     *                 "articleTitle": "",
+     *                 "articleContent": "",
+     *                 "articleTags": "tag1,tag2,tag3",
+     *                 "userB3Key": "",
+     *                 "articleEditorType": ""
+     *                 }
      * @param response the specified http servlet response
-     * @param context the specified http request context
+     * @param context  the specified http request context
      * @throws Exception exception
      */
     @RequestProcessing(value = "/apis/symphony/article", method = HTTPRequestMethod.POST)
     public void addArticle(final HttpServletRequest request, final HttpServletResponse response, final HTTPRequestContext context)
             throws Exception {
         final JSONRenderer renderer = new JSONRenderer();
-
         context.setRenderer(renderer);
-
         final JSONObject ret = new JSONObject();
 
         try {
@@ -140,22 +128,14 @@ public class ArticleReceiver {
             final JSONObject admin = userQueryService.getAdmin();
 
             article.put(Article.ARTICLE_AUTHOR_EMAIL, admin.getString(User.USER_EMAIL));
-            final String plainTextContent = Jsoup.parse(article.optString(Article.ARTICLE_CONTENT)).text();
-
-            if (plainTextContent.length() > ARTICLE_ABSTRACT_LENGTH) {
-                article.put(Article.ARTICLE_ABSTRACT, plainTextContent.substring(0, ARTICLE_ABSTRACT_LENGTH) + "....");
-            } else {
-                article.put(Article.ARTICLE_ABSTRACT, plainTextContent);
-            }
+            final String articleContent = article.optString(Article.ARTICLE_CONTENT);
+            article.put(Article.ARTICLE_ABSTRACT, Article.getAbstract(articleContent));
             article.put(Article.ARTICLE_IS_PUBLISHED, true);
             article.put(Common.POST_TO_COMMUNITY, false); // Do not send to rhythm
             article.put(Article.ARTICLE_COMMENTABLE, true);
             article.put(Article.ARTICLE_VIEW_PWD, "");
-            String content = article.getString(Article.ARTICLE_CONTENT);
+            final String content = article.getString(Article.ARTICLE_CONTENT);
             final String articleId = article.getString(Keys.OBJECT_ID);
-
-//            content += "\n\n<p style='font-size: 12px;'><i>该文章同步自 <a href='https://hacpai.com/article/" + articleId
-//                + "' target='_blank'>黑客派</a></i></p>";
             article.put(Article.ARTICLE_CONTENT, content);
 
             articleMgmtService.addArticle(requestJSONObject);
@@ -177,7 +157,6 @@ public class ArticleReceiver {
 
     /**
      * Updates an article with the specified request.
-     *
      * <p>
      * Renders the response with a json object, for example,
      * <pre>
@@ -188,21 +167,17 @@ public class ArticleReceiver {
      * </pre>
      * </p>
      *
-     * @param request the specified http servlet request, for example,      <pre>
-     * {
-     *     "article": {
-     *         "oId": "", // Symphony Article#clientArticleId
-     *         "articleTitle": "",
-     *         "articleContent": "",
-     *         "articleTags": "tag1,tag2,tag3",
-     *         "userB3Key": "",
-     *         "articleEditorType": ""
-     *     }
-     * }
-     * </pre>
-     *
+     * @param request  the specified http servlet request, for example,
+     *                 "article": {
+     *                 "oId": "", // Symphony Article#clientArticleId
+     *                 "articleTitle": "",
+     *                 "articleContent": "",
+     *                 "articleTags": "tag1,tag2,tag3",
+     *                 "userB3Key": "",
+     *                 "articleEditorType": ""
+     *                 }
      * @param response the specified http servlet response
-     * @param context the specified http request context
+     * @param context  the specified http request context
      * @throws Exception exception
      */
     @RequestProcessing(value = "/apis/symphony/article", method = HTTPRequestMethod.PUT)
@@ -238,22 +213,15 @@ public class ArticleReceiver {
                 return;
             }
 
-            final String plainTextContent = Jsoup.parse(article.optString(Article.ARTICLE_CONTENT)).text();
-
-            if (plainTextContent.length() > ARTICLE_ABSTRACT_LENGTH) {
-                article.put(Article.ARTICLE_ABSTRACT, plainTextContent.substring(0, ARTICLE_ABSTRACT_LENGTH) + "....");
-            } else {
-                article.put(Article.ARTICLE_ABSTRACT, plainTextContent);
-            }
+            final String articleContent = article.optString(Article.ARTICLE_CONTENT);
+            article.put(Article.ARTICLE_ABSTRACT, Article.getAbstract(articleContent));
             article.put(Article.ARTICLE_IS_PUBLISHED, true);
             article.put(Common.POST_TO_COMMUNITY, false); // Do not send to rhythm
             article.put(Article.ARTICLE_COMMENTABLE, true);
             article.put(Article.ARTICLE_VIEW_PWD, "");
-            String content = article.getString(Article.ARTICLE_CONTENT);
-
-//            content += "\n\n<p style='font-size: 12px;'><i>该文章同步自 <a href='https://hacpai.com/article/" + articleId
-//                + "' target='_blank'>黑客派</a></i></p>";
+            final String content = article.getString(Article.ARTICLE_CONTENT);
             article.put(Article.ARTICLE_CONTENT, content);
+            article.put(Article.ARTICLE_SIGN_ID, "1");
 
             articleMgmtService.updateArticle(requestJSONObject);
 

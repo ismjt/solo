@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,6 @@
 package org.b3log.solo.event.symphony;
 
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
 import org.b3log.latke.event.AbstractEventListener;
@@ -39,12 +37,15 @@ import org.b3log.solo.model.Option;
 import org.b3log.solo.service.PreferenceQueryService;
 import org.json.JSONObject;
 
+import java.net.MalformedURLException;
+import java.net.URL;
+
 
 /**
  * This listener is responsible for sending comment to B3log Symphony.
- * 
+ *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.4, Nov 20, 2015
+ * @version 1.0.1.0, Sep 6, 2017
  * @since 0.5.5
  */
 public final class CommentSender extends AbstractEventListener<JSONObject> {
@@ -52,7 +53,7 @@ public final class CommentSender extends AbstractEventListener<JSONObject> {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(CommentSender.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(CommentSender.class);
 
     /**
      * URL fetch service.
@@ -78,7 +79,7 @@ public final class CommentSender extends AbstractEventListener<JSONObject> {
         final JSONObject data = event.getData();
 
         LOGGER.log(Level.DEBUG, "Processing an event[type={0}, data={1}] in listener[className={2}]",
-            new Object[] {event.getType(), data, ArticleSender.class.getName()});
+                event.getType(), data, ArticleSender.class.getName());
         try {
             final JSONObject originalComment = data.getJSONObject(Comment.COMMENT);
 
@@ -86,14 +87,13 @@ public final class CommentSender extends AbstractEventListener<JSONObject> {
             final PreferenceQueryService preferenceQueryService = beanManager.getReference(PreferenceQueryService.class);
 
             final JSONObject preference = preferenceQueryService.getPreference();
-
             if (null == preference) {
                 throw new EventException("Not found preference");
             }
 
             if (Latkes.getServePath().contains("localhost")) {
                 LOGGER.log(Level.TRACE, "Solo runs on local server, so should not send this comment[id={0}] to Symphony",
-                    new Object[] {originalComment.getString(Keys.OBJECT_ID)});
+                        originalComment.getString(Keys.OBJECT_ID));
                 return;
             }
 
@@ -112,9 +112,9 @@ public final class CommentSender extends AbstractEventListener<JSONObject> {
 
             requestJSONObject.put(Comment.COMMENT, comment);
             requestJSONObject.put("clientVersion", SoloServletListener.VERSION);
-            requestJSONObject.put("clientRuntimeEnv", Latkes.getRuntimeEnv().name());
-            requestJSONObject.put("clientName", "B3log Solo");
-            requestJSONObject.put("clientHost", Latkes.getServerHost() + ":" + Latkes.getServerPort());
+            requestJSONObject.put("clientRuntimeEnv", "LOCAL");
+            requestJSONObject.put("clientName", "Solo");
+            requestJSONObject.put("clientHost", Latkes.getServePath());
             requestJSONObject.put("clientAdminEmail", preference.optString(Option.ID_C_ADMIN_EMAIL));
             requestJSONObject.put("userB3Key", preference.optString(Option.ID_C_KEY_OF_SOLO));
 
@@ -130,7 +130,7 @@ public final class CommentSender extends AbstractEventListener<JSONObject> {
 
     /**
      * Gets the event type {@linkplain EventTypes#ADD_COMMENT_TO_ARTICLE}.
-     * 
+     *
      * @return event type
      */
     @Override

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,22 +15,19 @@
  */
 package org.b3log.solo.processor;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
 import org.b3log.latke.ioc.LatkeBeanManager;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.mail.MailService;
 import org.b3log.latke.mail.MailService.Message;
 import org.b3log.latke.mail.MailServiceFactory;
-import org.b3log.latke.repository.*;
+import org.b3log.latke.repository.Query;
+import org.b3log.latke.repository.Repositories;
+import org.b3log.latke.repository.Repository;
+import org.b3log.latke.repository.Transaction;
 import org.b3log.latke.repository.annotation.Transactional;
 import org.b3log.latke.servlet.HTTPRequestContext;
 import org.b3log.latke.servlet.HTTPRequestMethod;
@@ -38,37 +35,35 @@ import org.b3log.latke.servlet.annotation.RequestProcessing;
 import org.b3log.latke.servlet.annotation.RequestProcessor;
 import org.b3log.latke.servlet.renderer.TextHTMLRenderer;
 import org.b3log.latke.util.CollectionUtils;
-import org.b3log.solo.model.*;
+import org.b3log.solo.model.Article;
+import org.b3log.solo.model.Option;
+import org.b3log.solo.model.Tag;
 import org.b3log.solo.repository.ArticleRepository;
 import org.b3log.solo.repository.TagArticleRepository;
 import org.b3log.solo.repository.TagRepository;
-import org.b3log.solo.repository.impl.ArchiveDateArticleRepositoryImpl;
-import org.b3log.solo.repository.impl.ArchiveDateRepositoryImpl;
-import org.b3log.solo.repository.impl.ArticleRepositoryImpl;
-import org.b3log.solo.repository.impl.CommentRepositoryImpl;
-import org.b3log.solo.repository.impl.LinkRepositoryImpl;
-import org.b3log.solo.repository.impl.OptionRepositoryImpl;
-import org.b3log.solo.repository.impl.PageRepositoryImpl;
-import org.b3log.solo.repository.impl.PluginRepositoryImpl;
-import org.b3log.solo.repository.impl.StatisticRepositoryImpl;
-import org.b3log.solo.repository.impl.TagArticleRepositoryImpl;
-import org.b3log.solo.repository.impl.TagRepositoryImpl;
-import org.b3log.solo.repository.impl.UserRepositoryImpl;
+import org.b3log.solo.repository.impl.*;
 import org.b3log.solo.service.PreferenceMgmtService;
 import org.b3log.solo.service.PreferenceQueryService;
 import org.b3log.solo.service.StatisticMgmtService;
 import org.b3log.solo.service.StatisticQueryService;
+import org.b3log.solo.util.Mails;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+
 /**
  * Provides patches on some special issues.
- *
  * <p>
  * See AuthFilter filter configurations in web.xml for authentication.</p>
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.2.0.11, Nov 20, 2015
+ * @version 1.2.0.13, Sep 6, 2017
  * @since 0.3.1
  */
 @RequestProcessor
@@ -77,7 +72,12 @@ public class RepairProcessor {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(RepairProcessor.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(RepairProcessor.class);
+
+    /**
+     * Mail service.
+     */
+    private static final MailService MAIL_SVC = MailServiceFactory.getMailService();
 
     /**
      * Bean manager.
@@ -96,11 +96,6 @@ public class RepairProcessor {
      */
     @Inject
     private PreferenceMgmtService preferenceMgmtService;
-
-    /**
-     * Mail service.
-     */
-    private static final MailService MAIL_SVC = MailServiceFactory.getMailService();
 
     /**
      * Tag repository.
@@ -163,7 +158,7 @@ public class RepairProcessor {
                 final JSONObject article = articles.getJSONObject(i);
 
                 final JSONArray names = article.names();
-                final Set<String> nameSet = CollectionUtils.<String>jsonArrayToSet(names);
+                final Set<String> nameSet = CollectionUtils.jsonArrayToSet(names);
 
                 if (nameSet.removeAll(keyNames)) {
                     for (final String unusedName : nameSet) {
@@ -172,7 +167,7 @@ public class RepairProcessor {
 
                     articleRepository.update(article.getString(Keys.OBJECT_ID), article);
                     LOGGER.log(Level.INFO, "Found an article[id={0}] exists unused properties[{1}]",
-                            new Object[]{article.getString(Keys.OBJECT_ID), nameSet});
+                            article.getString(Keys.OBJECT_ID), nameSet);
                 }
             }
 
@@ -188,53 +183,6 @@ public class RepairProcessor {
     }
 
     /**
-     * Restores the statistics.
-     *
-     * <p>
-     * <ul>
-     * <li>Uses the value of {@link Statistic#STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT} for
-     * {@link Statistic#STATISTIC_BLOG_COMMENT_COUNT}</li>
-     * <li>Uses the value of {@link Statistic#STATISTIC_PUBLISHED_ARTICLE_COUNT} for
-     * {@link Statistic#STATISTIC_BLOG_ARTICLE_COUNT}</li>
-     * </ul>
-     * </p>
-     *
-     * @param context the specified context
-     */
-    @RequestProcessing(value = "/fix/restore-stat.do", method = HTTPRequestMethod.GET)
-    public void restoreStat(final HTTPRequestContext context) {
-        final TextHTMLRenderer renderer = new TextHTMLRenderer();
-
-        context.setRenderer(renderer);
-
-        try {
-            final JSONObject statistic = statisticQueryService.getStatistic();
-
-            if (statistic.has(Statistic.STATISTIC_BLOG_COMMENT_COUNT) && statistic.has(Statistic.STATISTIC_BLOG_ARTICLE_COUNT)) {
-                LOGGER.info("No need for repairing statistic");
-                renderer.setContent("No need for repairing statistic.");
-
-                return;
-            }
-
-            if (!statistic.has(Statistic.STATISTIC_BLOG_COMMENT_COUNT)) {
-                statistic.put(Statistic.STATISTIC_BLOG_COMMENT_COUNT, statistic.getInt(Statistic.STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT));
-            }
-
-            if (!statistic.has(Statistic.STATISTIC_BLOG_ARTICLE_COUNT)) {
-                statistic.put(Statistic.STATISTIC_BLOG_ARTICLE_COUNT, statistic.getInt(Statistic.STATISTIC_PUBLISHED_ARTICLE_COUNT));
-            }
-
-            statisticMgmtService.updateStatistic(statistic);
-
-            renderer.setContent("Restores statistic succeeded.");
-        } catch (final Exception e) {
-            LOGGER.log(Level.ERROR, e.getMessage(), e);
-            renderer.setContent("Restores statistics failed, error msg[" + e.getMessage() + "]");
-        }
-    }
-
-    /**
      * Restores the signs of preference to default.
      *
      * @param context the specified context
@@ -242,7 +190,6 @@ public class RepairProcessor {
     @RequestProcessing(value = "/fix/restore-signs.do", method = HTTPRequestMethod.GET)
     public void restoreSigns(final HTTPRequestContext context) {
         final TextHTMLRenderer renderer = new TextHTMLRenderer();
-
         context.setRenderer(renderer);
 
         try {
@@ -253,18 +200,23 @@ public class RepairProcessor {
 
             preferenceMgmtService.updatePreference(preference);
 
-            // Sends the sample signs to developer
-            final Message msg = new MailService.Message();
+            renderer.setContent("Restores signs succeeded.");
 
+            // Sends the sample signs to developer
+            if (!Mails.isConfigured()) {
+                return;
+            }
+
+            final Message msg = new MailService.Message();
             msg.setFrom(preference.getString(Option.ID_C_ADMIN_EMAIL));
             msg.addRecipient("DL88250@gmail.com");
             msg.setSubject("Restore signs");
             msg.setHtmlBody(originalSigns + "<p>Admin email: " + preference.getString(Option.ID_C_ADMIN_EMAIL) + "</p>");
 
             MAIL_SVC.send(msg);
-            renderer.setContent("Restores signs succeeded.");
         } catch (final Exception e) {
             LOGGER.log(Level.ERROR, e.getMessage(), e);
+
             renderer.setContent("Restores signs failed, error msg[" + e.getMessage() + "]");
         }
     }
@@ -315,7 +267,7 @@ public class RepairProcessor {
                 tagRepository.update(tagId, tag);
 
                 LOGGER.log(Level.INFO, "Repaired tag[title={0}, refCnt={1}, publishedTagRefCnt={2}]",
-                        new Object[]{tag.getString(Tag.TAG_TITLE), tagRefCnt, publishedTagRefCnt});
+                        tag.getString(Tag.TAG_TITLE), tagRefCnt, publishedTagRefCnt);
             }
 
             renderer.setContent("Repair sucessfully!");
@@ -384,7 +336,6 @@ public class RepairProcessor {
             remove(beanManager.getReference(OptionRepositoryImpl.class));
             remove(beanManager.getReference(PageRepositoryImpl.class));
             remove(beanManager.getReference(PluginRepositoryImpl.class));
-            remove(beanManager.getReference(StatisticRepositoryImpl.class));
             remove(beanManager.getReference(TagArticleRepositoryImpl.class));
             remove(beanManager.getReference(TagRepositoryImpl.class));
             remove(beanManager.getReference(UserRepositoryImpl.class));
@@ -426,7 +377,7 @@ public class RepairProcessor {
      * Removes data in the specified repository.
      *
      * @param repository the specified repository
-     * @throws ExecutionException execution exception
+     * @throws ExecutionException   execution exception
      * @throws InterruptedException interrupted exception
      */
     private void remove(final Repository repository) throws ExecutionException, InterruptedException {

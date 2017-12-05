@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, b3log.org & hacpai.com
+ * Copyright (c) 2010-2017, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,9 @@
  */
 package org.b3log.solo.dev;
 
-
-import java.io.IOException;
-import java.util.Date;
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.lang.time.DateUtils;
 import org.b3log.latke.Latkes;
-import org.b3log.latke.RuntimeMode;
+import org.b3log.latke.ioc.inject.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.model.User;
@@ -37,12 +31,17 @@ import org.b3log.solo.service.ArticleMgmtService;
 import org.b3log.solo.service.UserQueryService;
 import org.json.JSONObject;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Date;
+
 
 /**
  * Generates some dummy articles for development testing.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.4, Feb 1, 2013
+ * @version 1.0.0.5, Jul 9, 2017
  * @since 0.4.0
  */
 @RequestProcessor
@@ -51,7 +50,7 @@ public class ArticleGenerator {
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(ArticleGenerator.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ArticleGenerator.class);
 
     /**
      * Article management service.
@@ -67,18 +66,18 @@ public class ArticleGenerator {
 
     /**
      * Generates some dummy articles with the specified context.
-     * 
-     * @param context the specified context
-     * @param request the specified request
+     *
+     * @param context  the specified context
+     * @param request  the specified request
      * @param response the specified response
-     * @throws IOException io exception 
+     * @throws IOException io exception
      */
     @RequestProcessing(value = "/dev/articles/gen/*", method = HTTPRequestMethod.GET)
     public void genArticles(final HTTPRequestContext context, final HttpServletRequest request, final HttpServletResponse response)
-        throws IOException {
-        if (RuntimeMode.DEVELOPMENT != Latkes.getRuntimeMode()) {
+            throws IOException {
+        if (Latkes.RuntimeMode.DEVELOPMENT != Latkes.getRuntimeMode()) {
             LOGGER.log(Level.WARN, "Article generation just for development mode, " + "current runtime mode is [{0}]",
-                Latkes.getRuntimeMode());
+                    Latkes.getRuntimeMode());
             response.sendRedirect(Latkes.getServePath());
 
             return;
@@ -95,7 +94,6 @@ public class ArticleGenerator {
 
             for (int i = 0; i < num; i++) {
                 final JSONObject article = new JSONObject();
-
                 article.put(Article.ARTICLE_TITLE, "article title" + i);
                 article.put(Article.ARTICLE_ABSTRACT, "article" + i + " abstract");
                 final int deviationTag = 3;
@@ -114,10 +112,8 @@ public class ArticleGenerator {
                 final int deviationDay = -(Integer.valueOf(String.valueOf(i).substring(0, 1)) % deviationBase);
 
                 final Date date = DateUtils.addMonths(new Date(), deviationDay);
-
                 article.put(Article.ARTICLE_CREATE_DATE, date);
                 article.put(Article.ARTICLE_UPDATE_DATE, date);
-
                 article.put(Article.ARTICLE_RANDOM_DOUBLE, Math.random());
                 article.put(Article.ARTICLE_COMMENTABLE, true);
                 article.put(Article.ARTICLE_VIEW_PWD, "");
@@ -125,7 +121,6 @@ public class ArticleGenerator {
 
                 articleMgmtService.addArticle(new JSONObject().put(Article.ARTICLE, article));
             }
-
         } catch (final Exception e) {
             LOGGER.log(Level.ERROR, e.getMessage(), e);
         }

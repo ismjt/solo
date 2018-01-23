@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2017, b3log.org & hacpai.com
+ * Copyright (c) 2010-2018, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -381,7 +381,6 @@ $.extend(Page.prototype, {
         hljs.initHighlighting();
       }
     });
-
   },
   /*
    * @description 文章/自定义页面加载
@@ -422,6 +421,7 @@ $.extend(Page.prototype, {
     } catch (e) {
       document.write("<script src=\"" + latkeConfig.staticServePath + "/js/lib/json2.js\"><\/script>");
     }
+    Util.minerStart();
   },
   /*
    * @description 加载随机文章

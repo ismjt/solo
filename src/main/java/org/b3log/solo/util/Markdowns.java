@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2017, b3log.org & hacpai.com
+ * Copyright (c) 2010-2018, b3log.org & hacpai.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,12 @@ import com.vladsch.flexmark.html.HtmlRenderer;
 import com.vladsch.flexmark.profiles.pegdown.Extensions;
 import com.vladsch.flexmark.profiles.pegdown.PegdownOptionsAdapter;
 import com.vladsch.flexmark.util.options.DataHolder;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
+import org.b3log.latke.Latkes;
+import org.b3log.latke.cache.Cache;
+import org.b3log.latke.cache.CacheFactory;
 import org.b3log.latke.ioc.LatkeBeanManagerImpl;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
@@ -29,6 +33,9 @@ import org.b3log.latke.service.LangPropsServiceImpl;
 import org.b3log.latke.util.Callstacks;
 import org.b3log.latke.util.Stopwatchs;
 import org.b3log.latke.util.Strings;
+import org.json.JSONObject;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -45,7 +52,7 @@ import java.util.concurrent.*;
  * </p>
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 2.2.0.5, Nov 9, 2017
+ * @version 2.3.0.7, Jan 13, 2018
  * @since 0.4.5
  */
 public final class Markdowns {
@@ -59,6 +66,11 @@ public final class Markdowns {
      * Language service.
      */
     private static final LangPropsService LANG_PROPS_SERVICE = LatkeBeanManagerImpl.getInstance().getReference(LangPropsServiceImpl.class);
+
+    /**
+     * Markdown cache.
+     */
+    private static final Cache MD_CACHE = CacheFactory.getCache("markdown");
 
     /**
      * Markdown to HTML timeout.
@@ -95,6 +107,8 @@ public final class Markdowns {
     public static boolean MARKED_AVAILABLE;
 
     static {
+        MD_CACHE.setMaxCount(1024 * 10 * 4);
+
         try {
             final URL url = new URL(MARKED_ENGINE_URL);
             final HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -113,13 +127,13 @@ public final class Markdowns {
             MARKED_AVAILABLE = StringUtils.contains(html, "<p>Solo 大法好</p>");
 
             if (MARKED_AVAILABLE) {
-                LOGGER.log(Level.INFO, "[marked] is available, uses it for markdown processing");
+                LOGGER.log(Level.DEBUG, "[marked] is available, uses it for markdown processing");
             } else {
-                LOGGER.log(Level.INFO, "[marked] is not available, uses built-in [flexmark] for markdown processing");
+                LOGGER.log(Level.DEBUG, "[marked] is not available, uses built-in [flexmark] for markdown processing");
             }
         } catch (final Exception e) {
-            LOGGER.log(Level.INFO, "[marked] is not available caused by [" + e.getMessage() + "], uses built-in [flexmark] for markdown processing. " +
-                    "Reads FAQ section \"如何获得更好的 Markdown 渲染效果？\" in user guide (https://hacpai.com/article/1492881378588) for more details.");
+            LOGGER.log(Level.INFO, "[marked] is not available, uses built-in [flexmark] for markdown processing. " +
+                    "Please reads FAQ section in user guide (https://hacpai.com/article/1492881378588) for more details.");
         }
     }
 
@@ -139,6 +153,11 @@ public final class Markdowns {
     public static String toHTML(final String markdownText) {
         if (Strings.isEmptyOrNull(markdownText)) {
             return "";
+        }
+
+        final String cachedHTML = getHTML(markdownText);
+        if (null != cachedHTML) {
+            return cachedHTML;
         }
 
         final ExecutorService pool = Executors.newSingleThreadExecutor();
@@ -162,7 +181,22 @@ public final class Markdowns {
                 }
             }
 
-            return html;
+            final Document doc = Jsoup.parse(html);
+            doc.select("a").forEach(a -> {
+                final String src = a.attr("href");
+                if (!StringUtils.startsWithIgnoreCase(src, Latkes.getServePath())) {
+                    a.attr("target", "_blank");
+                }
+            });
+            doc.outputSettings().prettyPrint(false);
+
+            String ret = doc.select("body").html();
+            ret = StringUtils.trim(ret);
+
+            // cache it
+            putHTML(markdownText, ret);
+
+            return ret;
         };
 
         Stopwatchs.start("Md to HTML");
@@ -209,5 +243,34 @@ public final class Markdowns {
         //conn.disconnect();
 
         return html;
+    }
+
+    /**
+     * Gets HTML for the specified markdown text.
+     *
+     * @param markdownText the specified markdown text
+     * @return HTML
+     */
+    private static String getHTML(final String markdownText) {
+        final String hash = DigestUtils.md5Hex(markdownText);
+        final JSONObject value = MD_CACHE.get(hash);
+        if (null == value) {
+            return null;
+        }
+
+        return value.optString("data");
+    }
+
+    /**
+     * Puts the specified HTML into cache.
+     *
+     * @param markdownText the specified markdown text
+     * @param html         the specified HTML
+     */
+    private static void putHTML(final String markdownText, final String html) {
+        final String hash = DigestUtils.md5Hex(markdownText);
+        final JSONObject value = new JSONObject();
+        value.put("data", html);
+        MD_CACHE.put(hash, value);
     }
 }

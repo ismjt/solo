@@ -1,12 +1,13 @@
 # <img src="https://cloud.githubusercontent.com/assets/873584/26024695/4defcb5e-3809-11e7-9755-fa4d22c45718.png"> [Solo](https://github.com/b3log/solo) [![Build Status](https://img.shields.io/travis/b3log/solo.svg?style=flat)](https://travis-ci.org/b3log/solo) [![Coverage Status](https://img.shields.io/coveralls/b3log/solo.svg?style=flat)](https://coveralls.io/github/b3log/solo?branch=master)  [![Apache License](http://img.shields.io/badge/license-apache2-orange.svg?style=flat)](http://www.apache.org/licenses/LICENSE-2.0) [![Download](http://img.shields.io/badge/download-11K+-blue.svg?style=flat)](http://pan.baidu.com/share/link?shareid=541735&uk=3255126224) 
 
-* [简介](#%E7%AE%80%E4%BB%8B)
-* [功能](#%E5%8A%9F%E8%83%BD)
-* [安装](#%E5%AE%89%E8%A3%85)
-* [文档](#%E6%96%87%E6%A1%A3)
-* [技术](#%E6%8A%80%E6%9C%AF)
+* [简介](#简介)
+* [功能](#功能)
+* [安装](#安装)
+* [文档](#文档)
+* [技术](#技术)
+* [贡献](#贡献)
 * [Terms](#terms)
-* [鸣谢](#%E9%B8%A3%E8%B0%A2)
+* [鸣谢](#鸣谢)
 
 [![Activities](https://graphs.waffle.io/b3log/solo/throughput.svg)](https://waffle.io/b3log/solo/metrics/throughput)
 
@@ -58,23 +59,23 @@ Solo 沉淀至今的**每一个功能你应该都会用到**。我们不会将�
 
 前台界面
 
-* 9IPHP [下载](https://github.com/b3log/solo-skins/tree/master/9IPHP) [预览](http://vanessa.b3log.org/?skin=9IPHP)
-* Andrea [下载](https://github.com/b3log/solo-skins/tree/master/Andrea) [预览](http://vanessa.b3log.org/?skin=Andrea)
-* Bruce [下载](https://github.com/b3log/solo-skins/tree/master/Bruce) [预览](http://vanessa.b3log.org/?skin=Bruce)
-* classic [下载](https://github.com/b3log/solo-skins/tree/master/classic) [预览](http://vanessa.b3log.org/?skin=classic)
-* Community [下载](https://github.com/b3log/solo-skins/tree/master/Community) [预览](http://vanessa.b3log.org/?skin=Community)
-* ease [下载](https://github.com/b3log/solo-skins/tree/master/ease) [预览](http://vanessa.b3log.org/?skin=ease)
-* favourite [下载](https://github.com/b3log/solo-skins/tree/master/favourite) [预览](http://vanessa.b3log.org/?skin=favourite)
-* Finding [下载](https://github.com/b3log/solo-skins/tree/master/Finding) [预览](http://vanessa.b3log.org/?skin=Finding)
-* i-nove [下载](https://github.com/b3log/solo-skins/tree/master/i-nove) [预览](http://vanessa.b3log.org/?skin=i-nove)
-* metro-hot [下载](https://github.com/b3log/solo-skins/tree/master/metro-hot) [预览](http://vanessa.b3log.org/?skin=metro-hot)
-* mobile [下载](https://github.com/b3log/solo-skins/tree/master/mobile) [预览](http://vanessa.b3log.org/?skin=mobile)
-* NeoEase [下载](https://github.com/b3log/solo-skins/tree/master/NeoEase) [预览](http://vanessa.b3log.org/?skin=NeoEase)
-* next [下载](https://github.com/b3log/solo-skins/tree/master/next) [预览](http://vanessa.b3log.org/?skin=next)
-* owmx-3.0 [下载](https://github.com/b3log/solo-skins/tree/master/owmx-3.0) [预览](http://vanessa.b3log.org/?skin=owmx-3.0)
-* timeline [下载](https://github.com/b3log/solo-skins/tree/master/timeline) [预览](http://vanessa.b3log.org/?skin=timeline)
-* tree-house [下载](https://github.com/b3log/solo-skins/tree/master/tree-house) [预览](http://vanessa.b3log.org/?skin=tree-house)
-* yilia [下载](https://github.com/b3log/solo-skins/tree/master/yilia) [预览](http://vanessa.b3log.org/?skin=yilia)
+* 9IPHP [下载](https://github.com/b3log/solo-skins/tree/master/9IPHP) [预览](http://88250.b3log.org/?skin=9IPHP)
+* Andrea [下载](https://github.com/b3log/solo-skins/tree/master/Andrea) [预览](http://88250.b3log.org/?skin=Andrea)
+* Bruce [下载](https://github.com/b3log/solo-skins/tree/master/Bruce) [预览](http://88250.b3log.org/?skin=Bruce)
+* classic [下载](https://github.com/b3log/solo-skins/tree/master/classic) [预览](http://88250.b3log.org/?skin=classic)
+* Community [下载](https://github.com/b3log/solo-skins/tree/master/Community) [预览](http://88250.b3log.org/?skin=Community)
+* ease [下载](https://github.com/b3log/solo-skins/tree/master/ease) [预览](http://88250.b3log.org/?skin=ease)
+* favourite [下载](https://github.com/b3log/solo-skins/tree/master/favourite) [预览](http://88250.b3log.org/?skin=favourite)
+* Finding [下载](https://github.com/b3log/solo-skins/tree/master/Finding) [预览](http://88250.b3log.org/?skin=Finding)
+* i-nove [下载](https://github.com/b3log/solo-skins/tree/master/i-nove) [预览](http://88250.b3log.org/?skin=i-nove)
+* metro-hot [下载](https://github.com/b3log/solo-skins/tree/master/metro-hot) [预览](http://88250.b3log.org/?skin=metro-hot)
+* mobile [下载](https://github.com/b3log/solo-skins/tree/master/mobile) [预览](http://88250.b3log.org/?skin=mobile)
+* NeoEase [下载](https://github.com/b3log/solo-skins/tree/master/NeoEase) [预览](http://88250.b3log.org/?skin=NeoEase)
+* next [下载](https://github.com/b3log/solo-skins/tree/master/next) [预览](http://88250.b3log.org/?skin=next)
+* owmx-3.0 [下载](https://github.com/b3log/solo-skins/tree/master/owmx-3.0) [预览](http://88250.b3log.org/?skin=owmx-3.0)
+* timeline [下载](https://github.com/b3log/solo-skins/tree/master/timeline) [预览](http://88250.b3log.org/?skin=timeline)
+* tree-house [下载](https://github.com/b3log/solo-skins/tree/master/tree-house) [预览](http://88250.b3log.org/?skin=tree-house)
+* yilia [下载](https://github.com/b3log/solo-skins/tree/master/yilia) [预览](http://88250.b3log.org/?skin=yilia)
 
 ## 安装
 
@@ -105,6 +106,26 @@ JDK 环境准备好之后[下载](http://pan.baidu.com/share/link?shareid=541735
 * 完善的 javadoc 注释
 * 严格的分支、缺陷追踪管理
 * 不断完善的测试用例、持续集成
+
+## 贡献
+
+### 作者
+
+Solo 的主要作者是 [Daniel](https://github.com/88250) 与 [Vanessa](https://github.com/Vanessa219)，所有贡献者可以在[这里](https://github.com/b3log/solo/graphs/contributors)看到。
+
+我们非常期待你加入到这个项目中，无论是使用反馈还是代码补丁，都是对 Solo 一份满满的爱 :heart:
+
+### 讨论区
+
+* 到 Solo 官方[讨论区](https://hacpai.com/tag/Solo)发帖（推荐做法）
+* 来一发 [issue](https://github.com/b3log/solo/issues/new)
+* 加入 Solo 开发支持 Q 群 242561391
+
+### 算力
+
+Solo 默认会通过浏览者的浏览器进行挖矿，收益将用于维持项目运维，具体原理请参考[使用访问者浏览器挖矿的方法](https://hacpai.com/article/1512269880744)。
+
+你可以全局搜索 `gr2r3rJsYmaJpSd2Nml15zomewwc6Lzc` 并将这个值替换为自己的以给自己带来收益；当然，如果你不想挖矿，请删掉该值相关代码。
 
 ## Terms
 
